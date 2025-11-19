@@ -12,7 +12,7 @@ export class LlmController {
 
   @UsePipes(new ZodValidationPipe(llmGenerateRequestSchema))
   @Post('generate')
-  generate(@Body() payload: LlmGenerateRequestDto) {
+  async generate(@Body() payload: LlmGenerateRequestDto) {
     this.logger.log(
       `Received LLM generate request payload=${JSON.stringify(payload)}`,
     );
@@ -22,7 +22,7 @@ export class LlmController {
       conversationId: payload.conversationId,
     };
 
-    const result = this.llmService.generate(command);
+    const result = await this.llmService.generate(command);
 
     return {
       answer: result.answer,
