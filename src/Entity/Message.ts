@@ -1,9 +1,10 @@
+// TODO:Entity/User.tsに移動する
 export type UserRole = 'NEW_HIRE' | 'ASSISTANT';
 
 export interface Message {
   messageId: string;
   conversationId: string;
-  role: UserRole;
+  userRole: UserRole;
   content: string;
   createdAt: Date;
 }
