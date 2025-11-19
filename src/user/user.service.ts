@@ -19,8 +19,4 @@ export class UserService {
       createdAt: new Date('2024-12-10T03:20:00Z'),
     },
   ];
-
-  getUsers(): User[] {
-    return this.users;
-  }
 }
