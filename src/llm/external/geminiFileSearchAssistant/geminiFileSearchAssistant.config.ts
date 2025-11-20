@@ -4,15 +4,14 @@ import { GeminiFileSearchAssistantOptions } from './geminiFileSearchAssistant.ty
 const onboardingGuidePath = path.resolve(
   process.cwd(),
   'resources',
-  'multi-store',
   'onboarding-tips.txt',
 );
 const onboardingGuidePath2 = path.resolve(
   process.cwd(),
   'resources',
-  'multi-store',
   'onboarding-tips2.txt',
 );
+const sonunPath = path.resolve(process.cwd(), 'resources', 'sonun-tips.txt');
 
 export const defaultGeminiFileSearchAssistantOptions: GeminiFileSearchAssistantOptions =
   {
@@ -28,6 +27,11 @@ export const defaultGeminiFileSearchAssistantOptions: GeminiFileSearchAssistantO
           {
             path: onboardingGuidePath2,
             displayName: 'Onboarding Tips 2',
+            mimeType: 'text/plain',
+          },
+          {
+            path: sonunPath,
+            displayName: 'Sonun Tips',
             mimeType: 'text/plain',
           },
         ],
