@@ -1,35 +1,35 @@
-import type { ConversationTurn } from '../llm.service';
+import { createUUID } from '../../common/uuid';
+import type { Message } from '../../Entity/Message';
+import type { UUID } from '../../common/uuid';
 
-export const conversationHistoryData: Record<string, ConversationTurn[]> = {
-  'conv-001': [
+const conversationIdOne = createUUID();
+const conversationIdTwo = createUUID();
+
+export const conversationHistoryData: Record<UUID, Message[]> = {
+  [conversationIdOne]: [
     {
-      role: 'user',
-      parts: [
-        {
-          kind: 'text',
-          text: '初日のオリエンテーションで気を付けることを教えてください。',
-        },
-      ],
+      messageId: createUUID(),
+      conversationId: conversationIdOne,
+      userRole: 'NEW_HIRE',
+      content: '初日のオリエンテーションで気を付けることを教えてください。',
+      createdAt: new Date('2024-01-01T10:00:00.000Z'),
     },
     {
-      role: 'model',
-      parts: [
-        {
-          kind: 'text',
-          text: 'まずはチームメンバーの名前を覚え、相談しやすい関係を築きましょう。',
-        },
-      ],
+      messageId: createUUID(),
+      conversationId: conversationIdOne,
+      userRole: 'ASSISTANT',
+      content:
+        'まずはチームメンバーの名前を覚え、相談しやすい関係を築きましょう。',
+      createdAt: new Date('2024-01-01T10:05:00.000Z'),
     },
   ],
-  'conv-002': [
+  [conversationIdTwo]: [
     {
-      role: 'user',
-      parts: [
-        {
-          kind: 'text',
-          text: '資料の提出期限はいつまででしたか？',
-        },
-      ],
+      messageId: createUUID(),
+      conversationId: conversationIdTwo,
+      userRole: 'NEW_HIRE',
+      content: '資料の提出期限はいつまででしたか？',
+      createdAt: new Date('2024-01-02T09:00:00.000Z'),
     },
   ],
 };
