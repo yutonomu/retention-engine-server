@@ -1,7 +1,7 @@
 import { GoogleGenAI, type ImportFileOperation } from '@google/genai';
 import { promises as fs } from 'fs';
 import * as path from 'path';
-import type { Message, UserRole } from '../../Entity/Message';
+import type { Message, UserRole } from '../../../Entity/Message';
 import {
   type AnswerQuestionOptions,
   type AnswerQuestionResult,
@@ -11,13 +11,13 @@ import {
   type StoreRegistry,
   type StoreSeed,
 } from './multi-store-chat.types';
-import { createUUID } from '../../common/uuid';
+import { createUUID } from '../../../common/uuid';
 
 const POLL_INTERVAL_MS = 5000;
 const STORE_REGISTRY_PATH = path.resolve('store-registry.json');
 
 function mapUserRoleToRole(role: UserRole) {
-  return role === 'NEW_HIRE' ? 'user' as const : 'model' as const;
+  return role === 'NEW_HIRE' ? ('user' as const) : ('model' as const);
 }
 
 export class MultiStoreChat {
