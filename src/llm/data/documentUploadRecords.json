@@ -1,0 +1,20 @@
+[
+  {
+    "id": "35f1b66f-87bd-418a-aca5-f41c1d4af356",
+    "filePath": "resources/onboarding-tips.txt",
+    "createdAt": "2025-11-20T13:06:24.820Z",
+    "uploaded": true
+  },
+  {
+    "id": "ebfbfe62-6c20-4223-bf32-4f3aa5e2924b",
+    "filePath": "resources/onboarding-tips2.txt",
+    "createdAt": "2025-11-20T12:59:24.951Z",
+    "uploaded": true
+  },
+  {
+    "id": "5b31bf91-ded7-45d0-8a42-185d35b848e6",
+    "filePath": "resources/sonun-tips.txt",
+    "createdAt": "2025-11-20T13:10:47.631Z",
+    "uploaded": true
+  }
+]

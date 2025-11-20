@@ -1,9 +1,14 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { JsonMessageDataAccess } from './repositories/JsonMessageDataAccess';
-import { FileSearchAssistant } from './external/fileSearchAssistant';
+import {
+  FileSearchAssistant,
+  type FileDocument,
+} from './external/fileSearchAssistant';
 import type { Message } from '../Entity/Message';
 import { createUUID } from '../common/uuid';
+import { DocumentUploadRepository } from './repositories/documentUploadRepository';
 import type { UUID } from '../common/uuid';
+import * as path from 'path';
 
 export type LlmGenerateCommand = {
   prompt: string;
@@ -21,6 +26,7 @@ export class LlmService {
 
   constructor(
     private readonly historyStore: JsonMessageDataAccess,
+    private readonly documentUploadRepository: DocumentUploadRepository,
     @Inject(FileSearchAssistant)
     private readonly fileSearchAssistant: FileSearchAssistant,
   ) {}
@@ -65,5 +71,51 @@ export class LlmService {
     );
 
     return llmResult;
+  }
+
+  async uploadPendingDocuments(): Promise<number> {
+    const pendingDocuments =
+      await this.documentUploadRepository.getPendingDocuments();
+    if (!pendingDocuments.length) {
+      this.logger.log('No pending documents to upload.');
+      return 0;
+    }
+
+    const fileDocuments: FileDocument[] = pendingDocuments.map((doc) => ({
+      id: doc.id,
+      filePath: doc.filePath,
+      displayName: this.extractDisplayName(doc.filePath),
+      mimeType: this.detectMimeType(doc.filePath),
+    }));
+
+    await this.fileSearchAssistant.uploadDocuments(fileDocuments);
+    await this.documentUploadRepository.markDocumentsUploaded(
+      pendingDocuments.map((doc) => doc.id),
+    );
+
+    this.logger.log(
+      `Uploaded ${pendingDocuments.length} pending documents to FileSearch.`,
+    );
+    return pendingDocuments.length;
+  }
+
+  private extractDisplayName(filePath: string): string {
+    return path.basename(filePath);
+  }
+
+  private detectMimeType(filePath: string): string {
+    const extension = path.extname(filePath).toLowerCase();
+    switch (extension) {
+      case '.txt':
+        return 'text/plain';
+      case '.pdf':
+        return 'application/pdf';
+      case '.md':
+        return 'text/markdown';
+      case '.json':
+        return 'application/json';
+      default:
+        return 'application/octet-stream';
+    }
   }
 }

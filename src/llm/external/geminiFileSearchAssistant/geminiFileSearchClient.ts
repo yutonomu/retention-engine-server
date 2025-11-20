@@ -11,6 +11,7 @@ import {
 } from './geminiFileSearchAssistant.types';
 import { createUUID } from '../../../common/uuid';
 import type {
+  FileDocument,
   FileSearchAnswerOptions,
   FileSearchAnswerResult,
 } from '../fileSearchAssistant';
@@ -99,6 +100,26 @@ export class GeminiFileSearchClient {
     };
 
     return { answer, message: assistantMessage };
+  }
+
+  async uploadDocuments(documents: FileDocument[]): Promise<void> {
+    if (!documents.length) {
+      return;
+    }
+
+    await this.ensureStoresReady();
+    const [primaryStoreSeed] = this.options.storeSeeds;
+    if (!primaryStoreSeed) {
+      throw new Error('No FileSearch stores configured.');
+    }
+    const storeName = await this.ensureStore(primaryStoreSeed);
+    const fileSeeds: FileSeed[] = documents.map((document) => ({
+      path: path.resolve(document.filePath),
+      displayName: document.displayName,
+      mimeType: document.mimeType ?? 'application/octet-stream',
+    }));
+
+    await this.ensureFilesInStore(fileSeeds, storeName);
   }
 
   private async ensureStoreRegistryLoaded() {

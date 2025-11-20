@@ -7,6 +7,7 @@ import {
 import { GeminiFileSearchClient } from './geminiFileSearchClient';
 import { defaultGeminiFileSearchAssistantOptions } from './geminiFileSearchAssistant.config';
 import type {
+  FileDocument,
   FileSearchAnswerOptions,
   FileSearchAnswerResult,
 } from '../fileSearchAssistant';
@@ -57,5 +58,15 @@ export class GeminiFileSearchAssistantService
     }
 
     return this.client.answerQuestion(question, options);
+  }
+
+  async uploadDocuments(documents: FileDocument[]): Promise<void> {
+    if (!this.client) {
+      throw new InternalServerErrorException(
+        'GeminiFileSearchAssistant client is not initialized.',
+      );
+    }
+
+    await this.client.uploadDocuments(documents);
   }
 }

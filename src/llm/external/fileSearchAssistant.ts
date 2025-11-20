@@ -11,9 +11,18 @@ export type FileSearchAnswerResult = {
   message: Message;
 };
 
+export type FileDocument = {
+  id: UUID;
+  filePath: string;
+  displayName: string;
+  mimeType: string;
+};
+
 export abstract class FileSearchAssistant {
   abstract answerQuestion(
     question: string,
     options: FileSearchAnswerOptions,
   ): Promise<FileSearchAnswerResult>;
+
+  abstract uploadDocuments(documents: FileDocument[]): Promise<void>;
 }

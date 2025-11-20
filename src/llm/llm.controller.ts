@@ -29,4 +29,11 @@ export class LlmController {
       answer: result.answer,
     };
   }
+
+  @Post('documentUpload')
+  async documentUpload() {
+    // TODO: リクエスト経由のファイルアップロードを実装し、受け取ったファイルをストレージ保存後に documentUploadRepository へ登録する
+    const uploadedCount = await this.llmService.uploadPendingDocuments();
+    return { uploadedCount };
+  }
 }
