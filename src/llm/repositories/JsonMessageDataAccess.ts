@@ -2,17 +2,17 @@ import { Injectable } from '@nestjs/common';
 import type { UUID } from '../../common/uuid';
 import type { MessageDataAccessInterface } from './MessageDataAccessInterface.types';
 import type { Message } from '../../Entity/Message';
-import { conversationHistoryData } from '../data/conversation-history.data';
+import { JsonMessage } from '../data/JsonMessage';
 
 @Injectable()
 export class JsonMessageDataAccess implements MessageDataAccessInterface {
   fetchMessages(conversationId: UUID): Promise<Message[]> {
-    return Promise.resolve(conversationHistoryData[conversationId] ?? []);
+    return Promise.resolve(JsonMessage[conversationId] ?? []);
   }
 
   saveMessages(conversationId: UUID, messages: Message[]): Promise<void> {
-    const existing = conversationHistoryData[conversationId] ?? [];
-    conversationHistoryData[conversationId] = [...existing, ...messages];
+    const existing = JsonMessage[conversationId] ?? [];
+    JsonMessage[conversationId] = [...existing, ...messages];
     return Promise.resolve();
   }
 }

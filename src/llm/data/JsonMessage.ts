@@ -5,7 +5,7 @@ import type { UUID } from '../../common/uuid';
 const conversationIdOne = createUUID();
 const conversationIdTwo = createUUID();
 
-export const conversationHistoryData: Record<UUID, Message[]> = {
+export const JsonMessage: Record<UUID, Message[]> = {
   [conversationIdOne]: [
     {
       messageId: createUUID(),
