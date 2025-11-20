@@ -3,8 +3,6 @@ import { promises as fs } from 'fs';
 import * as path from 'path';
 import type { Message, UserRole } from '../../../Entity/Message';
 import {
-  type AnswerQuestionOptions,
-  type AnswerQuestionResult,
   type FileSeed,
   type GeminiFileSearchAssistantOptions,
   type PrepareStoresOptions,
@@ -12,6 +10,10 @@ import {
   type StoreSeed,
 } from './geminiFileSearchAssistant.types';
 import { createUUID } from '../../../common/uuid';
+import type {
+  FileSearchAnswerOptions,
+  FileSearchAnswerResult,
+} from '../fileSearchAssistant';
 
 const POLL_INTERVAL_MS = 5000;
 const STORE_REGISTRY_PATH = path.resolve('store-registry.json');
@@ -20,7 +22,7 @@ function mapUserRoleToRole(role: UserRole) {
   return role === 'NEW_HIRE' ? ('user' as const) : ('model' as const);
 }
 
-export class GeminiFileSearchAssistant {
+export class GeminiFileSearchClient {
   private readonly ai: GoogleGenAI;
 
   private storeRegistry: StoreRegistry = {};
@@ -53,14 +55,14 @@ export class GeminiFileSearchAssistant {
 
   async answerQuestion(
     question: string,
-    options?: AnswerQuestionOptions,
-  ): Promise<AnswerQuestionResult> {
+    options: FileSearchAnswerOptions,
+  ): Promise<FileSearchAnswerResult> {
     if (!question?.trim()) {
       throw new Error('Question is required.');
     }
 
     await this.ensureStoresReady();
-    const history = options?.history ?? [];
+    const history = options.history ?? [];
 
     const contents = history.map((message) => ({
       role: mapUserRoleToRole(message.userRole),
@@ -88,13 +90,6 @@ export class GeminiFileSearchAssistant {
 
     const answer = this.extractText(response);
     const conversationId = options.conversationId;
-    const userMessage: Message = {
-      messageId: createUUID(),
-      conversationId,
-      userRole: 'NEW_HIRE',
-      content: question,
-      createdAt: new Date(),
-    };
     const assistantMessage: Message = {
       messageId: createUUID(),
       conversationId,
@@ -103,7 +98,7 @@ export class GeminiFileSearchAssistant {
       createdAt: new Date(),
     };
 
-    return { answer, messages: [userMessage, assistantMessage] };
+    return { answer, message: assistantMessage };
   }
 
   private async ensureStoreRegistryLoaded() {
@@ -159,6 +154,9 @@ export class GeminiFileSearchAssistant {
 
   private async ensureFilesInStore(files: FileSeed[], storeName: string) {
     for (const fileSeed of files) {
+      console.log(
+        `Ensuring FileSearch store (${storeName}) has file: ${fileSeed.displayName} (${fileSeed.path})`,
+      );
       await this.uploadAndImportFile(fileSeed, storeName);
     }
   }

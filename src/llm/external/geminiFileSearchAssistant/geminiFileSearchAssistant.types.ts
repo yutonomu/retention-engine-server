@@ -1,6 +1,3 @@
-import type { Message } from '../../../Entity/Message';
-import type { UUID } from '../../../common/uuid';
-
 export type FileSeed = {
   path: string;
   displayName: string;
@@ -23,14 +20,4 @@ export type GeminiFileSearchAssistantOptions = {
 export type PrepareStoresOptions = {
   importFiles?: boolean;
   forceImport?: boolean;
-};
-
-export type AnswerQuestionOptions = {
-  conversationId: UUID;
-  history?: Message[];
-};
-
-export type AnswerQuestionResult = {
-  answer: string;
-  messages: Message[];
 };

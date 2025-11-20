@@ -4,18 +4,22 @@ import {
   Logger,
   OnModuleInit,
 } from '@nestjs/common';
-import { GeminiFileSearchAssistant } from './geminiFileSearchAssistant';
+import { GeminiFileSearchClient } from './geminiFileSearchClient';
 import { defaultGeminiFileSearchAssistantOptions } from './geminiFileSearchAssistant.config';
 import type {
-  AnswerQuestionOptions,
-  AnswerQuestionResult,
-} from './geminiFileSearchAssistant.types';
+  FileSearchAnswerOptions,
+  FileSearchAnswerResult,
+} from '../fileSearchAssistant';
+import { FileSearchAssistant } from '../fileSearchAssistant';
 
 @Injectable()
-export class GeminiFileSearchAssistantService implements OnModuleInit {
+export class GeminiFileSearchAssistantService
+  extends FileSearchAssistant
+  implements OnModuleInit
+{
   private readonly logger = new Logger(GeminiFileSearchAssistantService.name);
 
-  private client: GeminiFileSearchAssistant | null = null;
+  private client: GeminiFileSearchClient | null = null;
 
   async onModuleInit(): Promise<void> {
     const apiKey = process.env.GOOGLE_API_KEY;
@@ -26,7 +30,7 @@ export class GeminiFileSearchAssistantService implements OnModuleInit {
       return;
     }
 
-    this.client = new GeminiFileSearchAssistant(
+    this.client = new GeminiFileSearchClient(
       defaultGeminiFileSearchAssistantOptions,
       apiKey,
     );
@@ -35,18 +39,17 @@ export class GeminiFileSearchAssistantService implements OnModuleInit {
       await this.client.prepareStores();
       this.logger.log('Gemini FileSearch stores are ready.');
     } catch (error) {
-      this.logger.error(
-        'Failed to prepare Gemini FileSearch stores.',
-        error,
-      );
+      this.logger.error('Failed to prepare Gemini FileSearch stores.', error);
       this.client = null;
     }
+
+    console.log('GeminiFileSearchAssistantService initialized');
   }
 
   async answerQuestion(
     question: string,
-    options?: AnswerQuestionOptions,
-  ): Promise<AnswerQuestionResult> {
+    options: FileSearchAnswerOptions,
+  ): Promise<FileSearchAnswerResult> {
     if (!this.client) {
       throw new InternalServerErrorException(
         'GeminiFileSearchAssistant client is not initialized.',

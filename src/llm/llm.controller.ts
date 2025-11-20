@@ -3,6 +3,7 @@ import { llmGenerateRequestSchema } from './dto/llmGenerateRequest.dto';
 import type { LlmGenerateRequestDto } from './dto/llmGenerateRequest.dto';
 import { ZodValidationPipe } from '../common/pipes/zodValidation.pipe';
 import { LlmService, type LlmGenerateCommand } from './llm.service';
+import type { UUID } from '../common/uuid';
 
 @Controller('llm')
 export class LlmController {
@@ -19,7 +20,7 @@ export class LlmController {
 
     const command: LlmGenerateCommand = {
       prompt: payload.question,
-      conversationId: payload.conversationId,
+      conversationId: payload.conversationId as UUID,
     };
 
     const result = await this.llmService.generate(command);

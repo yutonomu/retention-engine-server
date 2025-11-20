@@ -1,9 +1,8 @@
 import { z } from 'zod';
-import { UUIDSchema } from '../../common/uuid';
 
 export const llmGenerateRequestSchema = z.object({
   question: z.string().trim().min(1, 'question must not be empty.'),
-  conversationId: UUIDSchema,
+  conversationId: z.string().min(1, 'conversationId must not be empty.'),
 });
 
 export type LlmGenerateRequestDto = z.infer<typeof llmGenerateRequestSchema>;

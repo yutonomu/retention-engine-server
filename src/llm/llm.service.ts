@@ -1,7 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { JsonMessageDataAccess } from './repositories/JsonMessageDataAccess';
-import { GeminiFileSearchAssistantService } from './external/geminiFileSearchAssistant/geminiFileSearchAssistant.service';
+import { FileSearchAssistant } from './external/fileSearchAssistant';
 import type { Message } from '../Entity/Message';
+import { createUUID } from '../common/uuid';
 import type { UUID } from '../common/uuid';
 
 export type LlmGenerateCommand = {
@@ -11,7 +12,7 @@ export type LlmGenerateCommand = {
 
 export type LlmGenerateResult = {
   answer: string;
-  messages: Message[];
+  message: Message;
 };
 
 @Injectable()
@@ -20,7 +21,8 @@ export class LlmService {
 
   constructor(
     private readonly historyStore: JsonMessageDataAccess,
-    private readonly fileSearchAssistant: GeminiFileSearchAssistantService,
+    @Inject(FileSearchAssistant)
+    private readonly fileSearchAssistant: FileSearchAssistant,
   ) {}
 
   async generate(command: LlmGenerateCommand): Promise<LlmGenerateResult> {
@@ -45,13 +47,20 @@ export class LlmService {
       },
     );
 
-    await this.historyStore.saveMessages(
-      command.conversationId,
-      llmResult.messages,
-    );
+    const userMessage: Message = {
+      messageId: createUUID(),
+      conversationId: command.conversationId,
+      userRole: 'NEW_HIRE',
+      content: command.prompt,
+      createdAt: new Date(),
+    };
+    await this.historyStore.saveMessages(command.conversationId, [
+      userMessage,
+      llmResult.message,
+    ]);
     this.logger.log(
       `Appended new messages to conversationId="${command.conversationId}" messages=${JSON.stringify(
-        llmResult.messages,
+        [userMessage, llmResult.message],
       )}`,
     );
 
