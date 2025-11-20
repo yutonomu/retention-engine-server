@@ -1,11 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import type { UUID } from '../../common/uuid';
-import type { MessageDataAccess } from '../types/conversation.types';
+import type { MessageDataAccessInterface } from './MessageDataAccessInterface.types';
 import type { Message } from '../../Entity/Message';
 import { conversationHistoryData } from '../data/conversation-history.data';
 
 @Injectable()
-export class ConversationHistoryRepository implements MessageDataAccess {
+export class ConversationHistoryRepository
+  implements MessageDataAccessInterface
+{
   fetchMessages(conversationId: UUID): Promise<Message[]> {
     return Promise.resolve(conversationHistoryData[conversationId] ?? []);
   }
