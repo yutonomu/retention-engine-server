@@ -1,6 +1,6 @@
 import { Body, Controller, Logger, Post, UsePipes } from '@nestjs/common';
-import { llmGenerateRequestSchema } from './dto/llm-generate-request.dto';
-import type { LlmGenerateRequestDto } from './dto/llm-generate-request.dto';
+import { llmGenerateRequestSchema } from './dto/llmGenerateRequest.dto';
+import type { LlmGenerateRequestDto } from './dto/llmGenerateRequest.dto';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { LlmService, type LlmGenerateCommand } from './llm.service';
 
