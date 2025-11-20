@@ -1,8 +1,9 @@
 import { Body, Controller, Logger, Post, UsePipes } from '@nestjs/common';
-import { llmGenerateRequestSchema } from './dto/llm-generate-request.dto';
-import type { LlmGenerateRequestDto } from './dto/llm-generate-request.dto';
-import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
+import { llmGenerateRequestSchema } from './dto/llmGenerateRequest.dto';
+import type { LlmGenerateRequestDto } from './dto/llmGenerateRequest.dto';
+import { ZodValidationPipe } from '../common/pipes/zodValidation.pipe';
 import { LlmService, type LlmGenerateCommand } from './llm.service';
+import type { UUID } from '../common/uuid';
 
 @Controller('llm')
 export class LlmController {
@@ -19,7 +20,7 @@ export class LlmController {
 
     const command: LlmGenerateCommand = {
       prompt: payload.question,
-      conversationId: payload.conversationId,
+      conversationId: payload.conversationId as UUID,
     };
 
     const result = await this.llmService.generate(command);
@@ -27,5 +28,12 @@ export class LlmController {
     return {
       answer: result.answer,
     };
+  }
+
+  @Post('documentUpload')
+  async documentUpload() {
+    // TODO: リクエスト経由のファイルアップロードを実装し、受け取ったファイルをストレージ保存後に documentUploadRepository へ登録する
+    const uploadedCount = await this.llmService.uploadPendingDocuments();
+    return { uploadedCount };
   }
 }

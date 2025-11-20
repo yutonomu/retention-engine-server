@@ -3,15 +3,18 @@ import { promises as fs } from 'fs';
 import * as path from 'path';
 import type { Message, UserRole } from '../../../Entity/Message';
 import {
-  type AnswerQuestionOptions,
-  type AnswerQuestionResult,
   type FileSeed,
-  type MultiStoreChatOptions,
+  type GeminiFileSearchAssistantOptions,
   type PrepareStoresOptions,
   type StoreRegistry,
   type StoreSeed,
-} from './multi-store-chat.types';
+} from './geminiFileSearchAssistant.types';
 import { createUUID } from '../../../common/uuid';
+import type {
+  FileDocument,
+  FileSearchAnswerOptions,
+  FileSearchAnswerResult,
+} from '../fileSearchAssistant';
 
 const POLL_INTERVAL_MS = 5000;
 const STORE_REGISTRY_PATH = path.resolve('store-registry.json');
@@ -20,7 +23,7 @@ function mapUserRoleToRole(role: UserRole) {
   return role === 'NEW_HIRE' ? ('user' as const) : ('model' as const);
 }
 
-export class MultiStoreChat {
+export class GeminiFileSearchClient {
   private readonly ai: GoogleGenAI;
 
   private storeRegistry: StoreRegistry = {};
@@ -34,7 +37,7 @@ export class MultiStoreChat {
   private filesImported = false;
 
   constructor(
-    private readonly options: MultiStoreChatOptions,
+    private readonly options: GeminiFileSearchAssistantOptions,
     apiKey: string,
   ) {
     if (!apiKey) {
@@ -53,14 +56,14 @@ export class MultiStoreChat {
 
   async answerQuestion(
     question: string,
-    options?: AnswerQuestionOptions,
-  ): Promise<AnswerQuestionResult> {
+    options: FileSearchAnswerOptions,
+  ): Promise<FileSearchAnswerResult> {
     if (!question?.trim()) {
       throw new Error('Question is required.');
     }
 
     await this.ensureStoresReady();
-    const history = options?.history ?? [];
+    const history = options.history ?? [];
 
     const contents = history.map((message) => ({
       role: mapUserRoleToRole(message.userRole),
@@ -87,14 +90,7 @@ export class MultiStoreChat {
     });
 
     const answer = this.extractText(response);
-    const conversationId = options?.conversationId ?? createUUID();
-    const userMessage: Message = {
-      messageId: createUUID(),
-      conversationId,
-      userRole: 'NEW_HIRE',
-      content: question,
-      createdAt: new Date(),
-    };
+    const conversationId = options.conversationId;
     const assistantMessage: Message = {
       messageId: createUUID(),
       conversationId,
@@ -103,7 +99,27 @@ export class MultiStoreChat {
       createdAt: new Date(),
     };
 
-    return { answer, messages: [userMessage, assistantMessage] };
+    return { answer, message: assistantMessage };
+  }
+
+  async uploadDocuments(documents: FileDocument[]): Promise<void> {
+    if (!documents.length) {
+      return;
+    }
+
+    await this.ensureStoresReady();
+    const [primaryStoreSeed] = this.options.storeSeeds;
+    if (!primaryStoreSeed) {
+      throw new Error('No FileSearch stores configured.');
+    }
+    const storeName = await this.ensureStore(primaryStoreSeed);
+    const fileSeeds: FileSeed[] = documents.map((document) => ({
+      path: path.resolve(document.filePath),
+      displayName: document.displayName,
+      mimeType: document.mimeType ?? 'application/octet-stream',
+    }));
+
+    await this.ensureFilesInStore(fileSeeds, storeName);
   }
 
   private async ensureStoreRegistryLoaded() {
@@ -159,6 +175,9 @@ export class MultiStoreChat {
 
   private async ensureFilesInStore(files: FileSeed[], storeName: string) {
     for (const fileSeed of files) {
+      console.log(
+        `Ensuring FileSearch store (${storeName}) has file: ${fileSeed.displayName} (${fileSeed.path})`,
+      );
       await this.uploadAndImportFile(fileSeed, storeName);
     }
   }

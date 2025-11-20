@@ -1,17 +1,23 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { JsonMessageDataAccess } from './repositories/JsonMessageDataAccess';
-import { MultiStoreChatService } from './external/multi-store-chat/multi-store-chat.service';
+import {
+  FileSearchAssistant,
+  type FileDocument,
+} from './external/fileSearchAssistant';
 import type { Message } from '../Entity/Message';
+import { createUUID } from '../common/uuid';
+import { DocumentUploadRepository } from './repositories/documentUploadRepository';
 import type { UUID } from '../common/uuid';
+import * as path from 'path';
 
 export type LlmGenerateCommand = {
   prompt: string;
-  conversationId?: UUID;
+  conversationId: UUID;
 };
 
 export type LlmGenerateResult = {
   answer: string;
-  messages: Message[];
+  message: Message;
 };
 
 @Injectable()
@@ -20,7 +26,9 @@ export class LlmService {
 
   constructor(
     private readonly historyStore: JsonMessageDataAccess,
-    private readonly multiStoreChat: MultiStoreChatService,
+    private readonly documentUploadRepository: DocumentUploadRepository,
+    @Inject(FileSearchAssistant)
+    private readonly fileSearchAssistant: FileSearchAssistant,
   ) {}
 
   async generate(command: LlmGenerateCommand): Promise<LlmGenerateResult> {
@@ -28,40 +36,86 @@ export class LlmService {
       `Processing LLM generate command=${JSON.stringify(command)}`,
     );
 
-    let history: Message[] = [];
+    const history = await this.historyStore.fetchMessages(
+      command.conversationId,
+    );
+    this.logger.log(
+      `Loaded conversation history conversationId="${command.conversationId}" messages=${JSON.stringify(
+        history,
+      )}`,
+    );
 
-    if (command.conversationId) {
-      history = await this.historyStore.fetchMessages(command.conversationId);
-      this.logger.log(
-        `Loaded conversation history conversationId="${command.conversationId}" messages=${JSON.stringify(
-          history,
-        )}`,
-      );
-    } else {
-      this.logger.log('No conversationId provided; skipping history lookup.');
-    }
+    const llmResult = await this.fileSearchAssistant.answerQuestion(
+      command.prompt,
+      {
+        conversationId: command.conversationId,
+        history,
+      },
+    );
 
-    const llmResult = await this.multiStoreChat.answerQuestion(command.prompt, {
+    const userMessage: Message = {
+      messageId: createUUID(),
       conversationId: command.conversationId,
-      history,
-    });
-
-    if (command.conversationId) {
-      await this.historyStore.saveMessages(
-        command.conversationId,
-        llmResult.messages,
-      );
-      this.logger.log(
-        `Appended new messages to conversationId="${command.conversationId}" messages=${JSON.stringify(
-          llmResult.messages,
-        )}`,
-      );
-    } else {
-      this.logger.log(
-        'Skipping history append because conversationId is missing.',
-      );
-    }
+      userRole: 'NEW_HIRE',
+      content: command.prompt,
+      createdAt: new Date(),
+    };
+    await this.historyStore.saveMessages(command.conversationId, [
+      userMessage,
+      llmResult.message,
+    ]);
+    this.logger.log(
+      `Appended new messages to conversationId="${command.conversationId}" messages=${JSON.stringify(
+        [userMessage, llmResult.message],
+      )}`,
+    );
 
     return llmResult;
+  }
+
+  async uploadPendingDocuments(): Promise<number> {
+    const pendingDocuments =
+      await this.documentUploadRepository.getPendingDocuments();
+    if (!pendingDocuments.length) {
+      this.logger.log('No pending documents to upload.');
+      return 0;
+    }
+
+    const fileDocuments: FileDocument[] = pendingDocuments.map((doc) => ({
+      id: doc.id,
+      filePath: doc.filePath,
+      displayName: this.extractDisplayName(doc.filePath),
+      mimeType: this.detectMimeType(doc.filePath),
+    }));
+
+    await this.fileSearchAssistant.uploadDocuments(fileDocuments);
+    await this.documentUploadRepository.markDocumentsUploaded(
+      pendingDocuments.map((doc) => doc.id),
+    );
+
+    this.logger.log(
+      `Uploaded ${pendingDocuments.length} pending documents to FileSearch.`,
+    );
+    return pendingDocuments.length;
+  }
+
+  private extractDisplayName(filePath: string): string {
+    return path.basename(filePath);
+  }
+
+  private detectMimeType(filePath: string): string {
+    const extension = path.extname(filePath).toLowerCase();
+    switch (extension) {
+      case '.txt':
+        return 'text/plain';
+      case '.pdf':
+        return 'application/pdf';
+      case '.md':
+        return 'text/markdown';
+      case '.json':
+        return 'application/json';
+      default:
+        return 'application/octet-stream';
+    }
   }
 }
