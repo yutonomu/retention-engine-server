@@ -5,9 +5,7 @@ import type { Message } from '../../Entity/Message';
 import { conversationHistoryData } from '../data/conversation-history.data';
 
 @Injectable()
-export class ConversationHistoryRepository
-  implements MessageDataAccessInterface
-{
+export class JsonMessageDataAccess implements MessageDataAccessInterface {
   fetchMessages(conversationId: UUID): Promise<Message[]> {
     return Promise.resolve(conversationHistoryData[conversationId] ?? []);
   }

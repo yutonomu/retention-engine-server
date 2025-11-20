@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConversationHistoryRepository } from './repositories/conversation-history.repository';
+import { JsonMessageDataAccess } from './repositories/JsonMessageDataAccess';
 import { MultiStoreChatService } from './external/multi-store-chat/multi-store-chat.service';
 import type { Message } from '../Entity/Message';
 import type { UUID } from '../common/uuid';
@@ -19,7 +19,7 @@ export class LlmService {
   private readonly logger = new Logger(LlmService.name);
 
   constructor(
-    private readonly historyStore: ConversationHistoryRepository,
+    private readonly historyStore: JsonMessageDataAccess,
     private readonly multiStoreChat: MultiStoreChatService,
   ) {}
 
