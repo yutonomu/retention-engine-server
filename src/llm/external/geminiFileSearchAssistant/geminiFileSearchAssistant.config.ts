@@ -1,5 +1,5 @@
 import * as path from 'path';
-import { MultiStoreChatOptions } from './multi-store-chat.types';
+import { GeminiFileSearchAssistantOptions } from './geminiFileSearchAssistant.types';
 
 const onboardingGuidePath = path.resolve(
   process.cwd(),
@@ -8,7 +8,7 @@ const onboardingGuidePath = path.resolve(
   'onboarding-tips.txt',
 );
 
-export const defaultMultiStoreChatOptions: MultiStoreChatOptions = {
+export const defaultGeminiFileSearchAssistantOptions: GeminiFileSearchAssistantOptions = {
   storeSeeds: [
     {
       displayName: 'Onboarding Knowledge Base',

@@ -1,12 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { JsonMessageDataAccess } from './repositories/JsonMessageDataAccess';
-import { MultiStoreChatService } from './external/multi-store-chat/multi-store-chat.service';
+import { GeminiFileSearchAssistantService } from './external/geminiFileSearchAssistant/geminiFileSearchAssistant.service';
 import type { Message } from '../Entity/Message';
 import type { UUID } from '../common/uuid';
 
 export type LlmGenerateCommand = {
   prompt: string;
-  conversationId?: UUID;
+  conversationId: UUID;
 };
 
 export type LlmGenerateResult = {
@@ -20,7 +20,7 @@ export class LlmService {
 
   constructor(
     private readonly historyStore: JsonMessageDataAccess,
-    private readonly multiStoreChat: MultiStoreChatService,
+    private readonly fileSearchAssistant: GeminiFileSearchAssistantService,
   ) {}
 
   async generate(command: LlmGenerateCommand): Promise<LlmGenerateResult> {
@@ -28,39 +28,32 @@ export class LlmService {
       `Processing LLM generate command=${JSON.stringify(command)}`,
     );
 
-    let history: Message[] = [];
+    const history = await this.historyStore.fetchMessages(
+      command.conversationId,
+    );
+    this.logger.log(
+      `Loaded conversation history conversationId="${command.conversationId}" messages=${JSON.stringify(
+        history,
+      )}`,
+    );
 
-    if (command.conversationId) {
-      history = await this.historyStore.fetchMessages(command.conversationId);
-      this.logger.log(
-        `Loaded conversation history conversationId="${command.conversationId}" messages=${JSON.stringify(
-          history,
-        )}`,
-      );
-    } else {
-      this.logger.log('No conversationId provided; skipping history lookup.');
-    }
+    const llmResult = await this.fileSearchAssistant.answerQuestion(
+      command.prompt,
+      {
+        conversationId: command.conversationId,
+        history,
+      },
+    );
 
-    const llmResult = await this.multiStoreChat.answerQuestion(command.prompt, {
-      conversationId: command.conversationId,
-      history,
-    });
-
-    if (command.conversationId) {
-      await this.historyStore.saveMessages(
-        command.conversationId,
+    await this.historyStore.saveMessages(
+      command.conversationId,
+      llmResult.messages,
+    );
+    this.logger.log(
+      `Appended new messages to conversationId="${command.conversationId}" messages=${JSON.stringify(
         llmResult.messages,
-      );
-      this.logger.log(
-        `Appended new messages to conversationId="${command.conversationId}" messages=${JSON.stringify(
-          llmResult.messages,
-        )}`,
-      );
-    } else {
-      this.logger.log(
-        'Skipping history append because conversationId is missing.',
-      );
-    }
+      )}`,
+    );
 
     return llmResult;
   }

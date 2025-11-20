@@ -16,7 +16,7 @@ export type StoreSeed = {
 
 export type StoreRegistry = Record<string, string>;
 
-export type MultiStoreChatOptions = {
+export type GeminiFileSearchAssistantOptions = {
   storeSeeds: StoreSeed[];
 };
 
@@ -26,7 +26,7 @@ export type PrepareStoresOptions = {
 };
 
 export type AnswerQuestionOptions = {
-  conversationId?: UUID;
+  conversationId: UUID;
   history?: Message[];
 };
 

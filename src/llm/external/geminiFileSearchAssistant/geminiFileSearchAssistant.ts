@@ -6,11 +6,11 @@ import {
   type AnswerQuestionOptions,
   type AnswerQuestionResult,
   type FileSeed,
-  type MultiStoreChatOptions,
+  type GeminiFileSearchAssistantOptions,
   type PrepareStoresOptions,
   type StoreRegistry,
   type StoreSeed,
-} from './multi-store-chat.types';
+} from './geminiFileSearchAssistant.types';
 import { createUUID } from '../../../common/uuid';
 
 const POLL_INTERVAL_MS = 5000;
@@ -20,7 +20,7 @@ function mapUserRoleToRole(role: UserRole) {
   return role === 'NEW_HIRE' ? ('user' as const) : ('model' as const);
 }
 
-export class MultiStoreChat {
+export class GeminiFileSearchAssistant {
   private readonly ai: GoogleGenAI;
 
   private storeRegistry: StoreRegistry = {};
@@ -34,7 +34,7 @@ export class MultiStoreChat {
   private filesImported = false;
 
   constructor(
-    private readonly options: MultiStoreChatOptions,
+    private readonly options: GeminiFileSearchAssistantOptions,
     apiKey: string,
   ) {
     if (!apiKey) {
@@ -87,7 +87,7 @@ export class MultiStoreChat {
     });
 
     const answer = this.extractText(response);
-    const conversationId = options?.conversationId ?? createUUID();
+    const conversationId = options.conversationId;
     const userMessage: Message = {
       messageId: createUUID(),
       conversationId,
