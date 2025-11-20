@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import type { UUID } from '../../common/uuid';
+import { resolveJsonStoragePath } from '../data/jsonStorage';
 
 export type DocumentUploadRecord = {
   id: UUID;
@@ -19,7 +20,8 @@ type StoredDocumentUploadRecord = {
 
 type StoredDocumentUploadData = StoredDocumentUploadRecord[];
 
-const DATA_FILE_PATH = path.resolve(
+const DATA_FILE_PATH = resolveJsonStoragePath('documentUploadRecords.json');
+const DEFAULT_DATA_FILE_PATH = path.resolve(
   process.cwd(),
   'src',
   'llm',
@@ -29,6 +31,8 @@ const DATA_FILE_PATH = path.resolve(
 
 @Injectable()
 export class DocumentUploadRepository {
+  private readonly logger = new Logger(DocumentUploadRepository.name);
+
   async getPendingDocuments(): Promise<DocumentUploadRecord[]> {
     const records = await this.readRecords();
     return records
@@ -53,8 +57,9 @@ export class DocumentUploadRepository {
       return JSON.parse(json) as StoredDocumentUploadData;
     } catch (error) {
       if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') {
-        await this.writeRecords([]);
-        return [];
+        const fallback = await this.loadDefaultRecords();
+        await this.writeRecords(fallback);
+        return fallback;
       }
       throw error;
     }
@@ -67,5 +72,17 @@ export class DocumentUploadRepository {
       JSON.stringify(records, null, 2),
       'utf8',
     );
+  }
+
+  private async loadDefaultRecords(): Promise<StoredDocumentUploadData> {
+    try {
+      const json = await fs.readFile(DEFAULT_DATA_FILE_PATH, 'utf8');
+      return JSON.parse(json) as StoredDocumentUploadData;
+    } catch (error) {
+      this.logger.warn(
+        `Default documentUploadRecords.json not found. Initializing with empty records. Reason: ${(error as Error).message}`,
+      );
+      return [];
+    }
   }
 }

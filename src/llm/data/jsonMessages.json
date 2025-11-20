@@ -121,5 +121,77 @@
       "content": "資料の提出期限はいつまででしたか？",
       "createdAt": "2024-01-02T09:00:00.000Z"
     }
+  ],
+  "f6756af3-1c3a-475e-9d0c-3f48e652645c": [
+    {
+      "messageId": "019aa1ce-22c9-74c9-9281-621a18d042d5",
+      "conversationId": "f6756af3-1c3a-475e-9d0c-3f48e652645c",
+      "userRole": "NEW_HIRE",
+      "content": "チェソンウンについて教えてください",
+      "createdAt": "2025-11-20T15:07:12.457Z"
+    },
+    {
+      "messageId": "019aa1ce-22c8-7239-8346-c8d8f0e1661d",
+      "conversationId": "f6756af3-1c3a-475e-9d0c-3f48e652645c",
+      "userRole": "ASSISTANT",
+      "content": "チェソンウン（1895–1985）は、イギリスの詩人、小説家、そして古典学者です。彼の代表作には歴史小説「私はクラウディウス（I, Claudius）」などがあり、詩人としても高い評価を受けています。さらに、ギリシア神話や文学批評に関する多くの著作も残しています。",
+      "createdAt": "2025-11-20T15:07:12.457Z"
+    },
+    {
+      "messageId": "019aa1d0-3548-73fe-a046-3baea623b2bc",
+      "conversationId": "f6756af3-1c3a-475e-9d0c-3f48e652645c",
+      "userRole": "NEW_HIRE",
+      "content": "ドボクリエイト",
+      "createdAt": "2025-11-20T15:09:28.264Z"
+    },
+    {
+      "messageId": "019aa1d0-3548-73fe-a046-37850e8ac889",
+      "conversationId": "f6756af3-1c3a-475e-9d0c-3f48e652645c",
+      "userRole": "ASSISTANT",
+      "content": "申し訳ありませんが、「ドボクリエイト」に関する情報は見つかりませんでした。",
+      "createdAt": "2025-11-20T15:09:28.264Z"
+    },
+    {
+      "messageId": "019aa1d3-e566-7296-96ed-4a22bd585b5f",
+      "conversationId": "f6756af3-1c3a-475e-9d0c-3f48e652645c",
+      "userRole": "NEW_HIRE",
+      "content": "キムチの作り方を教えて",
+      "createdAt": "2025-11-20T15:13:29.958Z"
+    },
+    {
+      "messageId": "019aa1d3-e565-77df-96b0-cde9c1030b91",
+      "conversationId": "f6756af3-1c3a-475e-9d0c-3f48e652645c",
+      "userRole": "ASSISTANT",
+      "content": "申し訳ありませんが、キムチの作り方に関する情報は見つかりませんでした。",
+      "createdAt": "2025-11-20T15:13:29.958Z"
+    },
+    {
+      "messageId": "019aa1d4-3ad4-738b-8903-3bf458787bb5",
+      "conversationId": "f6756af3-1c3a-475e-9d0c-3f48e652645c",
+      "userRole": "NEW_HIRE",
+      "content": "チェソンウンについて教えて",
+      "createdAt": "2025-11-20T15:13:51.828Z"
+    },
+    {
+      "messageId": "019aa1d4-3ad4-738b-8903-340c16829d95",
+      "conversationId": "f6756af3-1c3a-475e-9d0c-3f48e652645c",
+      "userRole": "ASSISTANT",
+      "content": "チェソンウン（1895–1985）は、イギリスの詩人、小説家、そして古典学者です。彼の代表作には歴史小説「私はクラウディウス（I, Claudius）」などがあり、詩人としても高い評価を受けています。また、ギリシア神話や文学批評に関する多くの著作も残しています。",
+      "createdAt": "2025-11-20T15:13:51.828Z"
+    },
+    {
+      "messageId": "019aa1da-3e55-70e6-a99e-771d1d66fbd2",
+      "conversationId": "f6756af3-1c3a-475e-9d0c-3f48e652645c",
+      "userRole": "NEW_HIRE",
+      "content": "こんにちは",
+      "createdAt": "2025-11-20T15:20:25.941Z"
+    },
+    {
+      "messageId": "019aa1da-3e54-722a-840a-8dd804474836",
+      "conversationId": "f6756af3-1c3a-475e-9d0c-3f48e652645c",
+      "userRole": "ASSISTANT",
+      "content": "こんにちは！何かお手伝いできることはありますか？",
+      "createdAt": "2025-11-20T15:20:25.941Z"
+    }
   ]
 }
