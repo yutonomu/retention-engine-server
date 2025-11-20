@@ -1,5 +1,5 @@
-import type { Message } from '../../Entity/Message';
-import type { UUID } from '../../common/uuid';
+import type { Message } from '../../../Entity/Message';
+import type { UUID } from '../../../common/uuid';
 
 export type FileSeed = {
   path: string;
