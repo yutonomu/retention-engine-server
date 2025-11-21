@@ -1,24 +1,27 @@
 import { BadRequestException, Controller, Get, Query } from '@nestjs/common';
 import { ConversationService } from './conversation.service';
-import { Conversation } from './conversation.types';
+import {
+  GetActiveConversationListForMentorReturn,
+  GetConversationListByNewHireReturn,
+} from './conversation.types';
 
 @Controller('conversations')
 export class ConversationController {
   constructor(private readonly conversationService: ConversationService) {}
 
   @Get('mentor')
-  getAllConversationList(): Conversation[] {
-    return this.conversationService.getAllConversationList();
+  getMentorConversationList(): GetActiveConversationListForMentorReturn[] {
+    return this.conversationService.getActiveConversationListForMentor();
   }
 
   @Get('newHire')
   getConversationListByNewHire(
     @Query('userId') userId?: string,
-  ): Conversation[] {
+  ): GetConversationListByNewHireReturn[] {
     if (!userId) {
       throw new BadRequestException('userId is required');
     }
 
-    return this.conversationService.getConversationList(userId);
+    return this.conversationService.getConversationListByNewHire(userId);
   }
 }

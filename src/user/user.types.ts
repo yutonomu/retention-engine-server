@@ -1,9 +1,9 @@
 export type UserRole = 'NEW_HIRE' | 'MENTOR';
 
 export interface User {
-  userId: string;
+  user_id: string;
   role: UserRole;
-  displayName: string;
+  display_name: string;
   email: string;
-  createdAt: Date;
+  created_at: Date;
 }

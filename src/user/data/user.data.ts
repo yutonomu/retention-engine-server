@@ -2,17 +2,17 @@ import { User } from '../user.types';
 
 export const userData: User[] = [
   {
-    userId: 'user-001',
+    user_id: 'user-001',
     role: 'NEW_HIRE',
-    displayName: '佐藤 太郎',
+    display_name: '佐藤 太郎',
     email: 'taro.sato@example.com',
-    createdAt: new Date('2024-12-15T05:00:00Z'),
+    created_at: new Date('2024-12-15T05:00:00Z'),
   },
   {
-    userId: 'user-002',
+    user_id: 'user-002',
     role: 'MENTOR',
-    displayName: '山田 花子',
+    display_name: '山田 花子',
     email: 'hanako.yamada@example.com',
-    createdAt: new Date('2024-12-10T03:20:00Z'),
+    created_at: new Date('2024-12-10T03:20:00Z'),
   },
 ];
