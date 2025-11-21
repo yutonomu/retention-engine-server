@@ -1,14 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { Conversation } from './conversation.types';
-import { conversationData } from './data/conversation.data';
+import { ConversationRepository } from './repositories/conversation.repository';
 
 @Injectable()
 export class ConversationService {
-  private readonly conversations = conversationData;
+  constructor(private readonly conversationRepository: ConversationRepository) {}
 
   getConversationList(userId: string): Conversation[] {
-    return this.conversations.filter(
-      (conversation) => conversation.ownerId === userId,
-    );
+    return this.conversationRepository.findByOwner(userId);
+  }
+
+  getAllConversationList(): Conversation[] {
+    return this.conversationRepository.findAll();
   }
 }

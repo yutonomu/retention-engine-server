@@ -5,6 +5,5 @@ export interface Conversation {
   ownerId: string;
   title: string;
   createdAt: Date;
-  lastActiveAt: Date;
   state: ConversationState;
 }

@@ -6,8 +6,15 @@ import { Conversation } from './conversation.types';
 export class ConversationController {
   constructor(private readonly conversationService: ConversationService) {}
 
-  @Get()
-  getConversationList(@Query('userId') userId?: string): Conversation[] {
+  @Get('mentor')
+  getAllConversationList(): Conversation[] {
+    return this.conversationService.getAllConversationList();
+  }
+
+  @Get('newHire')
+  getConversationListByNewHire(
+    @Query('userId') userId?: string,
+  ): Conversation[] {
     if (!userId) {
       throw new BadRequestException('userId is required');
     }
