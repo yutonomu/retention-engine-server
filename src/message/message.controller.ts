@@ -26,6 +26,18 @@ export class MessageController {
     return { data: items };
   }
 
+  @Get('mentor')
+  async getMessagesForMentor(
+    @Query('mentorId') mentorId?: string,
+    @Query('convId') convId?: string,
+  ): Promise<MessageListResponse> {
+    const items = await this.messageService.getMessagesForMentor(
+      mentorId ?? '',
+      convId ?? '',
+    );
+    return { data: items };
+  }
+
   @Post()
   async createMessage(@Body() body: CreateMessageRequest): Promise<CreateMessageResponse> {
     const message = await this.messageService.createMessage({

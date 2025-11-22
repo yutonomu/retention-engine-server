@@ -33,19 +33,21 @@ export class MentorAssignmentController {
   }
 
   @Post()
-  assignNewhire(@Body() body: AssignmentRequestBody) {
-    this.mentorAssignmentService.createAssignment(
+  async assignNewhire(@Body() body: AssignmentRequestBody) {
+    await this.mentorAssignmentService.createAssignment(
       body.mentorId,
       body.newhireId,
     );
+    return { success: true };
   }
 
   @Put()
-  editAssignments(@Body() body: EditAssignmentsRequestBody) {
-    this.mentorAssignmentService.editAssignments(
+  async editAssignments(@Body() body: EditAssignmentsRequestBody) {
+    await this.mentorAssignmentService.editAssignments(
       body.mentorId,
       body.newhireIds,
     );
+    return { success: true };
   }
 
   @Delete()

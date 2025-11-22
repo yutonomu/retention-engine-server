@@ -41,14 +41,7 @@ export class MentorAssignmentService {
     };
   }
 
-  createAssignment(mentorId: string, newhireId: string): void {
-    void this.createAssignmentAsync(mentorId, newhireId);
-  }
-
-  private async createAssignmentAsync(
-    mentorId: string,
-    newhireId: string,
-  ): Promise<void> {
+  async createAssignment(mentorId: string, newhireId: string): Promise<void> {
     if (!mentorId?.trim()) {
       throw new BadRequestException('mentorId is required');
     }
@@ -58,11 +51,7 @@ export class MentorAssignmentService {
     await this.mentorAssignmentRepository.addAssignment(mentorId, newhireId);
   }
 
-  editAssignments(mentorId: string, newhireIds: string[]): void {
-    void this.editAssignmentsAsync(mentorId, newhireIds);
-  }
-
-  private async editAssignmentsAsync(
+  async editAssignments(
     mentorId: string,
     newhireIds: string[],
   ): Promise<void> {
@@ -78,14 +67,13 @@ export class MentorAssignmentService {
     if (!filtered.length) {
       throw new BadRequestException('newhireIds must include valid entries');
     }
-    await this.mentorAssignmentRepository.updateAssignments(mentorId, filtered);
+    await this.mentorAssignmentRepository.updateAssignments(
+      mentorId,
+      filtered,
+    );
   }
 
-  removeAssignment(mentorId: string, newhireId: string): void {
-    void this.removeAssignmentAsync(mentorId, newhireId);
-  }
-
-  private async removeAssignmentAsync(
+  async removeAssignment(
     mentorId: string,
     newhireId: string,
   ): Promise<void> {
@@ -99,5 +87,6 @@ export class MentorAssignmentService {
     if (!record) {
       throw new NotFoundException(`Mentor ${mentorId} has no assignments.`);
     }
+    return;
   }
 }
