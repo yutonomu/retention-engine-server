@@ -41,13 +41,16 @@ export class ConversationController {
 
   @Post('newHire')
   async createConversationForNewHire(
-    @Body() body: { userId?: string; title?: string },
+    @Body() body: { userId?: string; title?: string; role?: string; displayName?: string; email?: string },
   ): Promise<GetConversationListByNewHireReturn> {
     const userId = body.userId ?? '';
     const title = body.title ?? '';
     return this.conversationService.createConversationForNewHire(
       userId,
       title,
+      body.role,
+      body.displayName,
+      body.email,
     );
   }
 }

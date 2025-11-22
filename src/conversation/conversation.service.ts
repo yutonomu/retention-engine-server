@@ -61,11 +61,35 @@ export class ConversationService {
   async createConversationForNewHire(
     userId: string,
     title: string,
+    role?: string,
+    displayName?: string,
+    email?: string,
   ): Promise<GetConversationListByNewHireReturn> {
     if (!userId?.trim()) {
       throw new BadRequestException('userId is required');
     }
-    const user = await this.userRepository.findUserById(userId);
+    const user =
+      (await this.userRepository.findUserById(userId)) ??
+      (() => {
+        if (!role || role === 'NEW_HIRE') {
+          // upsert placeholder user
+          void this.userRepository.upsertUser({
+            user_id: userId,
+            role: 'NEW_HIRE',
+            display_name: displayName ?? email ?? userId,
+            email: email ?? '',
+            created_at: new Date(),
+          });
+          return {
+            user_id: userId,
+            role: 'NEW_HIRE' as const,
+            display_name: displayName ?? email ?? userId,
+            email: email ?? '',
+            created_at: new Date(),
+          };
+        }
+        return undefined;
+      })();
     if (!user) {
       throw new NotFoundException(`User ${userId} not found`);
     }

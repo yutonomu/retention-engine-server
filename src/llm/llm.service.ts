@@ -9,7 +9,6 @@ import { createUUID } from '../common/uuid';
 import { DocumentUploadRepository } from './repositories/documentUploadRepository';
 import type { UUID } from '../common/uuid';
 import * as path from 'path';
-import { MessageService } from '../message/message.service';
 
 export type LlmGenerateCommand = {
   prompt: string;
@@ -28,7 +27,6 @@ export class LlmService {
   constructor(
     private readonly historyStore: JsonMessageDataAccess,
     private readonly documentUploadRepository: DocumentUploadRepository,
-    private readonly messageService: MessageService,
     @Inject(FileSearchAssistant)
     private readonly fileSearchAssistant: FileSearchAssistant,
   ) {}
@@ -55,11 +53,6 @@ export class LlmService {
       createdAt: new Date(),
     };
     await this.historyStore.saveMessages(command.conversationId, [userMessage]);
-    this.persistSingleMessage(
-      command.conversationId,
-      'NEW_HIRE',
-      command.prompt,
-    );
 
     const llmResult = await this.fileSearchAssistant.answerQuestion(
       command.prompt,
@@ -76,12 +69,6 @@ export class LlmService {
       `Appended assistant message to conversationId="${command.conversationId}" message=${JSON.stringify(
         llmResult.message,
       )}`,
-    );
-
-    this.persistSingleMessage(
-      command.conversationId,
-      'ASSISTANT',
-      llmResult.message.content,
     );
 
     return llmResult;
@@ -133,23 +120,4 @@ export class LlmService {
     }
   }
 
-  private persistSingleMessage(
-    convId: string,
-    role: 'NEW_HIRE' | 'ASSISTANT',
-    content: string,
-  ) {
-    try {
-      this.messageService.createMessage({
-        convId,
-        role,
-        content,
-      });
-    } catch (error) {
-      this.logger.warn(
-        `Failed to persist ${role} message for conversation=${convId}: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-    }
-  }
 }

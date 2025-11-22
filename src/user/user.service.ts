@@ -34,4 +34,19 @@ export class UserService implements UserPort {
     const user = await this.findUserById(userId);
     return user?.display_name;
   }
+
+  async upsertUser(user: User): Promise<void> {
+    const payload = {
+      user_id: user.user_id,
+      role: user.role,
+      display_name: user.display_name || user.email || user.user_id,
+      email: user.email,
+      created_at: user.created_at ?? new Date().toISOString(),
+      disabled_at: user.disabled_at ?? null,
+    };
+    const { error } = await this.supabase.from('user').upsert(payload, { onConflict: 'user_id' });
+    if (error) {
+      throw error;
+    }
+  }
 }

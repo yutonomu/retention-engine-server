@@ -6,4 +6,5 @@ export interface User {
   display_name: string;
   email: string;
   created_at: Date;
+  disabled_at?: Date | null;
 }

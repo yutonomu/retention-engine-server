@@ -163,5 +163,98 @@
       "content": "資料の提出期限はいつまででしたか？",
       "createdAt": "2024-01-02T09:00:00.000Z"
     }
+  ],
+  "c1e6fb31-c81d-4983-a170-87442ee6ebd5": [
+    {
+      "messageId": "019aad0a-a7e0-770b-b791-959fb08d8e35",
+      "conversationId": "c1e6fb31-c81d-4983-a170-87442ee6ebd5",
+      "userRole": "NEW_HIRE",
+      "content": "11",
+      "createdAt": "2025-11-22T19:29:08.064Z"
+    },
+    {
+      "messageId": "019aad0b-b7a1-778f-91ca-b6eb9a037e4d",
+      "conversationId": "c1e6fb31-c81d-4983-a170-87442ee6ebd5",
+      "userRole": "NEW_HIRE",
+      "content": "11",
+      "createdAt": "2025-11-22T19:30:17.633Z"
+    },
+    {
+      "messageId": "019aad0b-be83-75b5-a050-009a448ff5fd",
+      "conversationId": "c1e6fb31-c81d-4983-a170-87442ee6ebd5",
+      "userRole": "ASSISTANT",
+      "content": "I'm sorry, I cannot understand your request. Could you please provide a clear question or statement?",
+      "createdAt": "2025-11-22T19:30:19.395Z"
+    },
+    {
+      "messageId": "019aad0b-e6b2-76a7-a0c0-dc2d4abb0520",
+      "conversationId": "c1e6fb31-c81d-4983-a170-87442ee6ebd5",
+      "userRole": "NEW_HIRE",
+      "content": "안녕",
+      "createdAt": "2025-11-22T19:30:29.682Z"
+    },
+    {
+      "messageId": "019aad0b-ec14-77ae-85da-e33cdcc7dda6",
+      "conversationId": "c1e6fb31-c81d-4983-a170-87442ee6ebd5",
+      "userRole": "ASSISTANT",
+      "content": "안녕하세요! 무엇을 도와드릴까요?",
+      "createdAt": "2025-11-22T19:30:31.061Z"
+    },
+    {
+      "messageId": "019aad0c-1659-74d8-bb27-bfb5f7fe5541",
+      "conversationId": "c1e6fb31-c81d-4983-a170-87442ee6ebd5",
+      "userRole": "NEW_HIRE",
+      "content": "너는 무엇이니?",
+      "createdAt": "2025-11-22T19:30:41.881Z"
+    },
+    {
+      "messageId": "019aad0c-1bae-77d0-b2e2-48f25adde81c",
+      "conversationId": "c1e6fb31-c81d-4983-a170-87442ee6ebd5",
+      "userRole": "ASSISTANT",
+      "content": "안녕하세요! 저는 Google에서 훈련한 대규모 언어 모델입니다.",
+      "createdAt": "2025-11-22T19:30:43.246Z"
+    },
+    {
+      "messageId": "019aad0c-94b3-75dd-a05b-24d5ec5a9627",
+      "conversationId": "c1e6fb31-c81d-4983-a170-87442ee6ebd5",
+      "userRole": "NEW_HIRE",
+      "content": "안녕",
+      "createdAt": "2025-11-22T19:31:14.228Z"
+    },
+    {
+      "messageId": "019aad0c-9a71-77cf-8440-6a825b67965c",
+      "conversationId": "c1e6fb31-c81d-4983-a170-87442ee6ebd5",
+      "userRole": "ASSISTANT",
+      "content": "안녕하세요! 무엇을 도와드릴까요?",
+      "createdAt": "2025-11-22T19:31:15.697Z"
+    },
+    {
+      "messageId": "019aad0d-f0cd-719e-809a-c4fd58006301",
+      "conversationId": "c1e6fb31-c81d-4983-a170-87442ee6ebd5",
+      "userRole": "NEW_HIRE",
+      "content": "배고파",
+      "createdAt": "2025-11-22T19:32:43.341Z"
+    },
+    {
+      "messageId": "019aad0d-f9a5-73f1-811c-c587012452bf",
+      "conversationId": "c1e6fb31-c81d-4983-a170-87442ee6ebd5",
+      "userRole": "ASSISTANT",
+      "content": "배고프시군요! 어떤 음식이 당기시나요? 제가 음식 아이디어를 추천해 드릴 수도 있고, 주변 맛집을 찾아드릴 수도 있어요. 아니면 그냥 배고픈 기분을 이야기하고 싶으신가요?",
+      "createdAt": "2025-11-22T19:32:45.605Z"
+    },
+    {
+      "messageId": "019aad0e-2274-7310-9bcc-f4af1a404d9b",
+      "conversationId": "c1e6fb31-c81d-4983-a170-87442ee6ebd5",
+      "userRole": "NEW_HIRE",
+      "content": "김치",
+      "createdAt": "2025-11-22T19:32:56.052Z"
+    },
+    {
+      "messageId": "019aad0e-28db-758a-aab4-b49b9f011b0a",
+      "conversationId": "c1e6fb31-c81d-4983-a170-87442ee6ebd5",
+      "userRole": "ASSISTANT",
+      "content": "김치 말씀이시군요! 김치가 드시고 싶으신가요, 아니면 김치에 대해 궁금한 점이 있으신가요? 제가 김치에 대한 정보나 레시피, 아니면 관련된 다른 것을 찾아드릴 수도 있습니다.",
+      "createdAt": "2025-11-22T19:32:57.691Z"
+    }
   ]
 }
