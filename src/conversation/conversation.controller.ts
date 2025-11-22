@@ -1,6 +1,6 @@
-import { BadRequestException, Controller, Get, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { ConversationService } from './conversation.service';
-import {
+import type {
   GetActiveConversationListForMentorReturn,
   GetConversationListByNewHireReturn,
 } from './conversation.types';
@@ -10,8 +10,15 @@ export class ConversationController {
   constructor(private readonly conversationService: ConversationService) {}
 
   @Get('mentor')
-  getMentorConversationList(): GetActiveConversationListForMentorReturn[] {
-    return this.conversationService.getActiveConversationListForMentor();
+  getMentorConversationList(
+    @Query('mentorId') mentorId?: string,
+  ): GetActiveConversationListForMentorReturn[] {
+    if (!mentorId) {
+      throw new BadRequestException('mentorId is required');
+    }
+    return this.conversationService.getActiveConversationListForMentor(
+      mentorId,
+    );
   }
 
   @Get('newHire')
@@ -23,5 +30,17 @@ export class ConversationController {
     }
 
     return this.conversationService.getConversationListByNewHire(userId);
+  }
+
+  @Post('newHire')
+  createConversationForNewHire(
+    @Body() body: { userId?: string; title?: string },
+  ): GetConversationListByNewHireReturn {
+    const userId = body.userId ?? '';
+    const title = body.title ?? '';
+    return this.conversationService.createConversationForNewHire(
+      userId,
+      title,
+    );
   }
 }
