@@ -8,10 +8,12 @@ import { MentorAssignmentModule } from './mentor-assignment/mentor-assignment.mo
 import { ConversationModule } from './conversation/conversation.module';
 import { UserModule } from './user/user.module';
 import { MessageModule } from './message/message.module';
+import { SupabaseModule } from './supabase/supabase.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    SupabaseModule,
     LlmModule,
     FeedbackModule,
     MentorAssignmentModule,

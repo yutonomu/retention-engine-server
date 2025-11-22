@@ -1,47 +1,89 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { MentorAssignment } from './mentor-assignment.types';
-import { mentorAssignmentData } from './data/mentor-assignment.data';
+import type { MentorAssignmentPort } from './mentor-assignment.port';
 
 @Injectable()
-export class MentorAssignmentRepository {
-  private readonly assignments: MentorAssignment[] = [...mentorAssignmentData];
+export class MentorAssignmentRepository implements MentorAssignmentPort {
+  constructor(
+    @Inject('SUPABASE_ADMIN_CLIENT')
+    private readonly supabase: SupabaseClient,
+  ) {}
 
-  findAll(): MentorAssignment[] {
-    return this.assignments;
-  }
-
-  findByMentorId(mentorId: string): MentorAssignment | undefined {
-    return this.assignments.find((assignment) => assignment.mentor_id === mentorId);
-  }
-
-  addAssignment(mentorId: string, newhireId: string): MentorAssignment {
-    let record = this.findByMentorId(mentorId);
-    if (!record) {
-      record = { mentor_id: mentorId, newhire_ids: [] };
-      this.assignments.push(record);
+  async findAll(): Promise<MentorAssignment[]> {
+    const { data, error } = await this.supabase.from('mentor_assignment').select();
+    if (error || !data) {
+      throw error ?? new Error('Failed to fetch mentor assignments.');
     }
-    if (!record.newhire_ids.includes(newhireId)) {
-      record.newhire_ids.push(newhireId);
-    }
-    return record;
+    return data as unknown as MentorAssignment[];
   }
 
-  updateAssignments(mentorId: string, newhireIds: string[]): MentorAssignment {
-    let record = this.findByMentorId(mentorId);
-    if (!record) {
-      record = { mentor_id: mentorId, newhire_ids: [] };
-      this.assignments.push(record);
+  async findByMentorId(mentorId: string): Promise<MentorAssignment | undefined> {
+    const { data, error } = await this.supabase
+      .from('mentor_assignment')
+      .select()
+      .eq('mentor_id', mentorId)
+      .is('revoked_at', null);
+    if (error) {
+      throw error;
     }
-    record.newhire_ids = Array.from(new Set(newhireIds));
-    return record;
-  }
-
-  removeAssignment(mentorId: string, newhireId: string): MentorAssignment | undefined {
-    const record = this.findByMentorId(mentorId);
-    if (!record) {
+    if (!data || data.length === 0) {
       return undefined;
     }
-    record.newhire_ids = record.newhire_ids.filter((id) => id !== newhireId);
-    return record;
+    const newhireIds = data.map((row) => (row as any).newhire_id);
+    return { mentor_id: mentorId, newhire_ids: newhireIds };
+  }
+
+  async addAssignment(mentorId: string, newhireId: string): Promise<MentorAssignment> {
+    const { error } = await this.supabase
+      .from('mentor_assignment')
+      .upsert(
+        { mentor_id: mentorId, newhire_id: newhireId },
+        { onConflict: 'mentor_id,newhire_id' },
+      );
+    if (error) {
+      throw error;
+    }
+    return (
+      (await this.findByMentorId(mentorId)) ?? { mentor_id: mentorId, newhire_ids: [newhireId] }
+    );
+  }
+
+  async updateAssignments(
+    mentorId: string,
+    newhireIds: string[],
+  ): Promise<MentorAssignment> {
+    // revoke existing
+    const { error: deleteError } = await this.supabase
+      .from('mentor_assignment')
+      .delete()
+      .eq('mentor_id', mentorId);
+    if (deleteError) {
+      throw deleteError;
+    }
+    const uniqueIds = Array.from(new Set(newhireIds));
+    const rows = uniqueIds.map((id) => ({ mentor_id: mentorId, newhire_id: id }));
+    if (rows.length) {
+      const { error: insertError } = await this.supabase.from('mentor_assignment').insert(rows);
+      if (insertError) {
+        throw insertError;
+      }
+    }
+    return { mentor_id: mentorId, newhire_ids: uniqueIds };
+  }
+
+  async removeAssignment(
+    mentorId: string,
+    newhireId: string,
+  ): Promise<MentorAssignment | undefined> {
+    const { error } = await this.supabase
+      .from('mentor_assignment')
+      .delete()
+      .eq('mentor_id', mentorId)
+      .eq('newhire_id', newhireId);
+    if (error) {
+      throw error;
+    }
+    return this.findByMentorId(mentorId);
   }
 }

@@ -1,4 +1,11 @@
-import { BadRequestException, Body, Controller, Get, Post, Query } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ConversationService } from './conversation.service';
 import type {
   GetActiveConversationListForMentorReturn,
@@ -10,9 +17,9 @@ export class ConversationController {
   constructor(private readonly conversationService: ConversationService) {}
 
   @Get('mentor')
-  getMentorConversationList(
+  async getMentorConversationList(
     @Query('mentorId') mentorId?: string,
-  ): GetActiveConversationListForMentorReturn[] {
+  ): Promise<GetActiveConversationListForMentorReturn[]> {
     if (!mentorId) {
       throw new BadRequestException('mentorId is required');
     }
@@ -22,9 +29,9 @@ export class ConversationController {
   }
 
   @Get('newHire')
-  getConversationListByNewHire(
+  async getConversationListByNewHire(
     @Query('userId') userId?: string,
-  ): GetConversationListByNewHireReturn[] {
+  ): Promise<GetConversationListByNewHireReturn[]> {
     if (!userId) {
       throw new BadRequestException('userId is required');
     }
@@ -33,9 +40,9 @@ export class ConversationController {
   }
 
   @Post('newHire')
-  createConversationForNewHire(
+  async createConversationForNewHire(
     @Body() body: { userId?: string; title?: string },
-  ): GetConversationListByNewHireReturn {
+  ): Promise<GetConversationListByNewHireReturn> {
     const userId = body.userId ?? '';
     const title = body.title ?? '';
     return this.conversationService.createConversationForNewHire(

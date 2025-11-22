@@ -1,39 +1,61 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { messageData } from '../data/message.data';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Message } from '../message.types';
-import { createUUID } from '../../common/uuid';
+import { randomUUID } from 'crypto';
+import type { MessagePort } from '../message.port';
 
 @Injectable()
-export class MessageRepository {
-  private readonly store: Message[] = [...messageData];
+export class MessageRepository implements MessagePort {
+  constructor(
+    @Inject('SUPABASE_ADMIN_CLIENT')
+    private readonly supabase: SupabaseClient,
+  ) {}
 
-  findById(messageId: string): Message {
-    const found = this.store.find((message) => message.msg_id === messageId);
-    if (!found) {
+  async findById(messageId: string): Promise<Message> {
+    const { data, error } = await this.supabase
+      .from('message')
+      .select()
+      .eq('msg_id', messageId)
+      .single();
+    if (error || !data) {
       throw new NotFoundException(`Message ${messageId} not found.`);
     }
-    return found;
+    return data as unknown as Message;
   }
 
-  findAllByConversation(convId: string): Message[] {
-    return this.store
-      .filter((message) => message.conv_id === convId)
-      .sort((a, b) => a.created_at.getTime() - b.created_at.getTime());
+  async findAllByConversation(convId: string): Promise<Message[]> {
+    const { data, error } = await this.supabase
+      .from('message')
+      .select()
+      .eq('conv_id', convId)
+      .order('created_at', { ascending: true })
+      .order('msg_id', { ascending: true });
+    if (error || !data) {
+      throw error ?? new Error('Failed to fetch messages.');
+    }
+    return data as unknown as Message[];
   }
 
-  createMessage(input: {
+  async createMessage(input: {
     convId: string;
     role: Message['role'];
     content: string;
-  }): Message {
-    const message: Message = {
-      msg_id: createUUID(),
-      conv_id: input.convId,
-      role: input.role,
-      content: input.content,
-      created_at: new Date(),
-    };
-    this.store.push(message);
-    return message;
+  }): Promise<Message> {
+    const msgId = randomUUID();
+    const { data, error } = await this.supabase
+      .from('message')
+      .insert({
+        msg_id: msgId,
+        conv_id: input.convId,
+        role: input.role,
+        content: input.content,
+        status: input.role === 'ASSISTANT' ? 'DONE' : null,
+      })
+      .select()
+      .single();
+    if (error || !data) {
+      throw error ?? new Error('Failed to create message.');
+    }
+    return data as unknown as Message;
   }
 }

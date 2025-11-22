@@ -1,7 +1,7 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
-import { FeedbackRepository } from './repositories/feedback.repository';
+import { Inject, BadRequestException, Injectable } from '@nestjs/common';
 import type { Feedback } from './feedback.types';
-import { MessageRepository } from '../message/repositories/message.repository';
+import type { FeedbackPort } from './feedback.port';
+import type { MessagePort } from '../message/message.port';
 
 interface CreateFeedbackParams {
   messageId: string;
@@ -16,24 +16,26 @@ export interface FeedbackListResult {
 @Injectable()
 export class FeedbackService {
   constructor(
-    private readonly feedbackRepository: FeedbackRepository,
-    private readonly messageRepository: MessageRepository,
+    @Inject('FEEDBACK_PORT')
+    private readonly feedbackRepository: FeedbackPort,
+    @Inject('MESSAGE_PORT')
+    private readonly messageRepository: MessagePort,
   ) {}
 
-  getFeedbackByMessage(messageId: string): FeedbackListResult {
+  async getFeedbackByMessage(messageId: string): Promise<FeedbackListResult> {
     if (!messageId?.trim()) {
       throw new BadRequestException('messageId is required');
     }
-    const message = this.messageRepository.findById(messageId);
-    const items = this.feedbackRepository.findByMessageId(message.msg_id);
+    const message = await this.messageRepository.findById(messageId);
+    const items = await this.feedbackRepository.findByMessageId(message.msg_id);
     return { items };
   }
 
-  createFeedback(input: CreateFeedbackParams): Feedback {
+  async createFeedback(input: CreateFeedbackParams): Promise<Feedback> {
     if (!input.messageId?.trim()) {
       throw new BadRequestException('messageId is required');
     }
-    const message = this.messageRepository.findById(input.messageId);
+    const message = await this.messageRepository.findById(input.messageId);
     const content = input.content?.trim();
     if (!content) {
       throw new BadRequestException('content must not be empty');
@@ -44,6 +46,7 @@ export class FeedbackService {
     return this.feedbackRepository.createFeedback({
       target_msg_id: message.msg_id,
       author_id: input.authorId,
+      author_role: 'MENTOR',
       content,
     });
   }

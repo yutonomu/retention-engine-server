@@ -21,14 +21,14 @@ export class MessageController {
   constructor(private readonly messageService: MessageService) {}
 
   @Get()
-  getMessages(@Query('convId') convId?: string): MessageListResponse {
-    const items = this.messageService.getMessagesByConversation(convId ?? '');
+  async getMessages(@Query('convId') convId?: string): Promise<MessageListResponse> {
+    const items = await this.messageService.getMessagesByConversation(convId ?? '');
     return { data: items };
   }
 
   @Post()
-  createMessage(@Body() body: CreateMessageRequest): CreateMessageResponse {
-    const message = this.messageService.createMessage({
+  async createMessage(@Body() body: CreateMessageRequest): Promise<CreateMessageResponse> {
+    const message = await this.messageService.createMessage({
       convId: body.convId,
       role: body.role,
       content: body.content,

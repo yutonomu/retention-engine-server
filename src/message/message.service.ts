@@ -1,28 +1,32 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
-import { MessageRepository } from './repositories/message.repository';
-import { ConversationRepository } from '../conversation/repositories/conversation.repository';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import type { MessagePort } from './message.port';
+import { MESSAGE_PORT } from './message.port';
+import type { ConversationPort } from '../conversation/conversation.port';
+import { CONVERSATION_PORT } from '../conversation/conversation.port';
 import type { Message } from './message.types';
 
 @Injectable()
 export class MessageService {
   constructor(
-    private readonly messageRepository: MessageRepository,
-    private readonly conversationRepository: ConversationRepository,
+    @Inject(MESSAGE_PORT)
+    private readonly messageRepository: MessagePort,
+    @Inject(CONVERSATION_PORT)
+    private readonly conversationRepository: ConversationPort,
   ) {}
 
-  getMessagesByConversation(convId: string): Message[] {
+  async getMessagesByConversation(convId: string): Promise<Message[]> {
     if (!convId?.trim()) {
       throw new BadRequestException('convId is required');
     }
-    this.conversationRepository.findById(convId);
+    await this.conversationRepository.findById(convId);
     return this.messageRepository.findAllByConversation(convId);
   }
 
-  createMessage(input: {
+  async createMessage(input: {
     convId: string;
     role: Message['role'];
     content: string;
-  }): Message {
+  }): Promise<Message> {
     if (!input.convId?.trim()) {
       throw new BadRequestException('convId is required');
     }
@@ -33,7 +37,7 @@ export class MessageService {
     if (!trimmedContent) {
       throw new BadRequestException('content must not be empty');
     }
-    this.conversationRepository.findById(input.convId);
+    await this.conversationRepository.findById(input.convId);
     return this.messageRepository.createMessage({
       convId: input.convId,
       role: input.role,

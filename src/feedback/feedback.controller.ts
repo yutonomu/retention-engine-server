@@ -21,18 +21,18 @@ export class FeedbackController {
   constructor(private readonly feedbackService: FeedbackService) {}
 
   @Get()
-  getFeedbackByMessage(
+  async getFeedbackByMessage(
     @Query('messageId') messageId: string,
-  ): FeedbackListResponse {
-    const result = this.feedbackService.getFeedbackByMessage(messageId);
+  ): Promise<FeedbackListResponse> {
+    const result = await this.feedbackService.getFeedbackByMessage(messageId);
     return { data: result.items };
   }
 
   @Post()
-  createFeedback(
+  async createFeedback(
     @Body() dto: CreateFeedbackRequestBody,
-  ): CreateFeedbackResponse {
-    const feedback = this.feedbackService.createFeedback({
+  ): Promise<CreateFeedbackResponse> {
+    const feedback = await this.feedbackService.createFeedback({
       messageId: dto.messageId,
       authorId: dto.authorId,
       content: dto.content,
