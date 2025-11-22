@@ -54,13 +54,33 @@ export class LlmService {
     };
     await this.historyStore.saveMessages(command.conversationId, [userMessage]);
 
-    const llmResult = await this.fileSearchAssistant.answerQuestion(
-      command.prompt,
-      {
+    let llmResult: { answer: string; message: Message };
+    try {
+      llmResult = await this.fileSearchAssistant.answerQuestion(
+        command.prompt,
+        {
+          conversationId: command.conversationId,
+          history: [...history, userMessage],
+        },
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to generate answer via FileSearchAssistant conversationId="${command.conversationId}"`,
+        error as Error,
+      );
+      const fallbackMessage: Message = {
+        messageId: createUUID(),
         conversationId: command.conversationId,
-        history: [...history, userMessage],
-      },
-    );
+        userRole: 'ASSISTANT',
+        content:
+          '申し訳ありません、現在回答を生成できませんでした。しばらくしてから再度お試しください。',
+        createdAt: new Date(),
+      };
+      llmResult = {
+        answer: fallbackMessage.content,
+        message: fallbackMessage,
+      };
+    }
 
     await this.historyStore.saveMessages(command.conversationId, [
       llmResult.message,
