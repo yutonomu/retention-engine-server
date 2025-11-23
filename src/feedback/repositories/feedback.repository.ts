@@ -1,14 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Feedback } from '../feedback.types';
 import { randomUUID } from 'crypto';
 import type { FeedbackPort } from '../feedback.port';
+import type { SupabaseAdminClient } from '../../supabase/adminClient';
 
 @Injectable()
 export class FeedbackRepository implements FeedbackPort {
   constructor(
     @Inject('SUPABASE_ADMIN_CLIENT')
-    private readonly supabase: SupabaseClient,
+    private readonly supabase: SupabaseAdminClient,
   ) {}
 
   async findByMessageId(messageId: string): Promise<Feedback[]> {

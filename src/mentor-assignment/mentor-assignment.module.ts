@@ -13,9 +13,6 @@ import { MENTOR_ASSIGNMENT_PORT } from './mentor-assignment.port';
       useClass: MentorAssignmentRepository,
     },
   ],
-  exports: [
-    MentorAssignmentService,
-    MENTOR_ASSIGNMENT_PORT,
-  ],
+  exports: [MentorAssignmentService, MENTOR_ASSIGNMENT_PORT],
 })
 export class MentorAssignmentModule {}

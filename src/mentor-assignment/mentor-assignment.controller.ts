@@ -51,10 +51,11 @@ export class MentorAssignmentController {
   }
 
   @Delete()
-  unassign(@Body() body: AssignmentRequestBody) {
-    this.mentorAssignmentService.removeAssignment(
+  async unassign(@Body() body: AssignmentRequestBody) {
+    await this.mentorAssignmentService.removeAssignment(
       body.mentorId,
       body.newhireId,
     );
+    return { success: true };
   }
 }

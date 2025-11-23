@@ -1,13 +1,13 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { User } from './user.types';
 import type { UserPort } from './user.port';
+import type { SupabaseAdminClient } from '../supabase/adminClient';
 
 @Injectable()
 export class UserService implements UserPort {
   constructor(
     @Inject('SUPABASE_ADMIN_CLIENT')
-    private readonly supabase: SupabaseClient,
+    private readonly supabase: SupabaseAdminClient,
   ) {}
 
   async getUsers(): Promise<User[]> {
@@ -44,7 +44,9 @@ export class UserService implements UserPort {
       created_at: user.created_at ?? new Date().toISOString(),
       disabled_at: user.disabled_at ?? null,
     };
-    const { error } = await this.supabase.from('user').upsert(payload, { onConflict: 'user_id' });
+    const { error } = await this.supabase
+      .from('user')
+      .upsert(payload, { onConflict: 'user_id' });
     if (error) {
       throw error;
     }

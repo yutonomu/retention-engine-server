@@ -21,8 +21,12 @@ export class MessageController {
   constructor(private readonly messageService: MessageService) {}
 
   @Get()
-  async getMessages(@Query('convId') convId?: string): Promise<MessageListResponse> {
-    const items = await this.messageService.getMessagesByConversation(convId ?? '');
+  async getMessages(
+    @Query('convId') convId?: string,
+  ): Promise<MessageListResponse> {
+    const items = await this.messageService.getMessagesByConversation(
+      convId ?? '',
+    );
     return { data: items };
   }
 
@@ -39,7 +43,9 @@ export class MessageController {
   }
 
   @Post()
-  async createMessage(@Body() body: CreateMessageRequest): Promise<CreateMessageResponse> {
+  async createMessage(
+    @Body() body: CreateMessageRequest,
+  ): Promise<CreateMessageResponse> {
     const message = await this.messageService.createMessage({
       convId: body.convId,
       role: body.role,

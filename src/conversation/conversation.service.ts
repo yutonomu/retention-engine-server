@@ -104,9 +104,7 @@ export class ConversationService {
       throw new BadRequestException('title must not be empty');
     }
     if (trimmedTitle.length > 120) {
-      throw new BadRequestException(
-        'title must be 120 characters or fewer',
-      );
+      throw new BadRequestException('title must be 120 characters or fewer');
     }
 
     const created = await this.conversationRepository.create(
@@ -136,9 +134,8 @@ export class ConversationService {
       );
     }
 
-    const assignment = await this.mentorAssignmentRepository.findByMentorId(
-      mentorId,
-    );
+    const assignment =
+      await this.mentorAssignmentRepository.findByMentorId(mentorId);
     if (!assignment) {
       return [];
     }

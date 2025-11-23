@@ -1,40 +1,54 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PostgrestResponse } from '@supabase/supabase-js';
 import type { MentorAssignment } from './mentor-assignment.types';
 import type { MentorAssignmentPort } from './mentor-assignment.port';
+import type { SupabaseAdminClient } from '../supabase/adminClient';
+
+type MentorAssignmentRow = {
+  mentor_id: string;
+  newhire_id: string;
+  revoked_at?: string | null;
+};
 
 @Injectable()
 export class MentorAssignmentRepository implements MentorAssignmentPort {
   constructor(
     @Inject('SUPABASE_ADMIN_CLIENT')
-    private readonly supabase: SupabaseClient,
+    private readonly supabase: SupabaseAdminClient,
   ) {}
 
   async findAll(): Promise<MentorAssignment[]> {
-    const { data, error } = await this.supabase.from('mentor_assignment').select();
+    const { data, error } = await this.supabase
+      .from('mentor_assignment')
+      .select();
     if (error || !data) {
       throw error ?? new Error('Failed to fetch mentor assignments.');
     }
     return data as unknown as MentorAssignment[];
   }
 
-  async findByMentorId(mentorId: string): Promise<MentorAssignment | undefined> {
-    const { data, error } = await this.supabase
+  async findByMentorId(
+    mentorId: string,
+  ): Promise<MentorAssignment | undefined> {
+    const { data, error } = (await this.supabase
       .from('mentor_assignment')
       .select()
       .eq('mentor_id', mentorId)
-      .is('revoked_at', null);
+      .is('revoked_at', null)) as PostgrestResponse<MentorAssignmentRow>;
     if (error) {
       throw error;
     }
     if (!data || data.length === 0) {
       return undefined;
     }
-    const newhireIds = data.map((row) => (row as any).newhire_id);
+    const newhireIds = data.map((row) => row.newhire_id);
     return { mentor_id: mentorId, newhire_ids: newhireIds };
   }
 
-  async addAssignment(mentorId: string, newhireId: string): Promise<MentorAssignment> {
+  async addAssignment(
+    mentorId: string,
+    newhireId: string,
+  ): Promise<MentorAssignment> {
     const { error } = await this.supabase
       .from('mentor_assignment')
       .upsert(
@@ -45,7 +59,10 @@ export class MentorAssignmentRepository implements MentorAssignmentPort {
       throw error;
     }
     return (
-      (await this.findByMentorId(mentorId)) ?? { mentor_id: mentorId, newhire_ids: [newhireId] }
+      (await this.findByMentorId(mentorId)) ?? {
+        mentor_id: mentorId,
+        newhire_ids: [newhireId],
+      }
     );
   }
 
@@ -62,9 +79,14 @@ export class MentorAssignmentRepository implements MentorAssignmentPort {
       throw deleteError;
     }
     const uniqueIds = Array.from(new Set(newhireIds));
-    const rows = uniqueIds.map((id) => ({ mentor_id: mentorId, newhire_id: id }));
+    const rows = uniqueIds.map((id) => ({
+      mentor_id: mentorId,
+      newhire_id: id,
+    }));
     if (rows.length) {
-      const { error: insertError } = await this.supabase.from('mentor_assignment').insert(rows);
+      const { error: insertError } = await this.supabase
+        .from('mentor_assignment')
+        .insert(rows);
       if (insertError) {
         throw insertError;
       }

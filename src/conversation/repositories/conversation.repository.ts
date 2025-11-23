@@ -1,14 +1,14 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
 import { Conversation, ConversationState } from '../conversation.types';
 import type { ConversationPort } from '../conversation.port';
+import type { SupabaseAdminClient } from '../../supabase/adminClient';
 
 @Injectable()
 export class ConversationRepository implements ConversationPort {
   constructor(
     @Inject('SUPABASE_ADMIN_CLIENT')
-    private readonly supabase: SupabaseClient,
+    private readonly supabase: SupabaseAdminClient,
   ) {}
 
   async create(ownerId: string, title: string): Promise<Conversation> {

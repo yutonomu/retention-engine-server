@@ -4,6 +4,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { JwksService } from './jwks.service';
 import { createVerify } from 'crypto';
 
@@ -30,7 +31,9 @@ export class JwtAuthGuard implements CanActivate {
   constructor(private readonly jwksService: JwksService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest();
+    const request = context
+      .switchToHttp()
+      .getRequest<Request & { user?: JwtPayload }>();
     const authHeader: string | undefined = request.headers['authorization'];
     if (!authHeader?.toLowerCase().startsWith('bearer ')) {
       throw new UnauthorizedException('Missing Authorization header');

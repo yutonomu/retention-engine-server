@@ -41,7 +41,14 @@ export class ConversationController {
 
   @Post('newHire')
   async createConversationForNewHire(
-    @Body() body: { userId?: string; title?: string; role?: string; displayName?: string; email?: string },
+    @Body()
+    body: {
+      userId?: string;
+      title?: string;
+      role?: string;
+      displayName?: string;
+      email?: string;
+    },
   ): Promise<GetConversationListByNewHireReturn> {
     const userId = body.userId ?? '';
     const title = body.title ?? '';

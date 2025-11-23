@@ -1,10 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { promises as fs } from 'fs';
 import * as path from 'path';
-import {
-  GeminiTextService,
-  type SummaryResult,
-} from '../llm/external/geminiTextService';
+import { GeminiTextService } from '../llm/external/geminiTextService';
 import { MESSAGE_PORT, type MessagePort } from '../message/message.port';
 import type { Feedback } from './feedback.types';
 

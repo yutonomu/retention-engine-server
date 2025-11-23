@@ -49,7 +49,7 @@ export class GeminiTextService implements OnModuleInit {
 
     const response = await this.client.models.generateContent({
       model: 'gemini-2.5-flash',
-      generationConfig: {
+      config: {
         // JSONのみ返すよう強制
         responseMimeType: 'application/json',
       },
@@ -100,7 +100,9 @@ export class GeminiTextService implements OnModuleInit {
     return this.buildFallbackSummary(params);
   }
 
-  private buildFallbackSummary(params: SummarizeInteractionParams): SummaryResult {
+  private buildFallbackSummary(
+    params: SummarizeInteractionParams,
+  ): SummaryResult {
     return {
       title: 'feedback-summary',
       summary: `メッセージ:\n${params.messageContent}\n\nフィードバック:\n${params.feedbackContent}`,
@@ -109,7 +111,8 @@ export class GeminiTextService implements OnModuleInit {
 
   private buildTextFallbackSummary(text: string): SummaryResult {
     const trimmed = text.trim();
-    const limited = trimmed.length > 800 ? `${trimmed.slice(0, 800)}...` : trimmed;
+    const limited =
+      trimmed.length > 800 ? `${trimmed.slice(0, 800)}...` : trimmed;
     return {
       title: 'feedback-summary',
       summary: limited,
