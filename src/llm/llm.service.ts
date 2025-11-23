@@ -55,11 +55,6 @@ export class LlmService {
       content: command.prompt,
       createdAt: new Date(),
     };
-    await this.messagePort.createMessage({
-      convId: command.conversationId.toString(),
-      role: 'NEW_HIRE',
-      content: command.prompt,
-    });
 
     let llmResult: { answer: string; message: Message };
     try {
@@ -89,11 +84,6 @@ export class LlmService {
       };
     }
 
-    await this.messagePort.createMessage({
-      convId: command.conversationId.toString(),
-      role: 'ASSISTANT',
-      content: llmResult.answer,
-    });
     this.logger.log(
       `Appended assistant message to conversationId="${command.conversationId}" message=${JSON.stringify(
         llmResult.message,
