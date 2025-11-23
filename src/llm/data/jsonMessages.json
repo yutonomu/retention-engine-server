@@ -111,6 +111,48 @@
       "userRole": "ASSISTANT",
       "content": "チェソンウン（1895–1985）は、イギリスの詩人、小説家、そして古典学者です。彼の代表作には歴史小説「私はクラウディウス（I, Claudius）」があり、詩人としても高い評価を得ています。また、ギリシア神話や文学批評に関して多くの著作を残しています。",
       "createdAt": "2025-11-20T14:05:57.131Z"
+    },
+    {
+      "messageId": "019aab5c-dc9a-7697-9cf0-2f1f67082bda",
+      "conversationId": "conv-001",
+      "userRole": "NEW_HIRE",
+      "content": "オンボーディング資料はどこですか？",
+      "createdAt": "2025-11-22T11:39:41.082Z"
+    },
+    {
+      "messageId": "019aab5c-dc9a-7697-9cf0-2bc80e5b5a58",
+      "conversationId": "conv-001",
+      "userRole": "ASSISTANT",
+      "content": "申し訳ありませんが、私はあなたの所属する組織の内部システムやファイルに直接アクセスすることができません。そのため、具体的な「オンボーディング資料」の場所をお伝えすることはできません。\n\nしかし、一般的にオンボーディング資料が置かれている可能性のある場所をいくつか挙げさせていただきます。\n\n*   **社内イントラネット / ポータルサイト**: 多くの企業では、従業員向けの重要な情報や資料を社内ポータルサイトに集約しています。\n*   **共有ドライブ / クラウドストレージ**: Google Drive, Microsoft SharePoint, Dropbox Businessなどの共有ストレージに、「オンボーディング」「新入社員向け」といったフォルダが作成されている場合があります。\n*   **HR部門または人事担当者**: 人事部門が直接資料を管理しており、入社時に手渡しされたり、メールで送付されたりすることもあります。\n*   **配属されたチームの共有フォルダ**: チーム固有のオンボーディング資料がある場合、チームの共有フォルダやWikiなどに格納されていることがあります。\n*   **メンターやバディ、直属の上司**: もしメンターやバディ、または直属の上司が指定されている場合は、彼らに直接尋ねるのが最も確実で早い方法です。\n\nまずは、あなたの会社の**人事担当者**や**直属の上司**、または**チームの先輩**に「オンボーディング資料はどこにありますか？」と尋ねるのが最も確実です。",
+      "createdAt": "2025-11-22T11:39:41.082Z"
+    },
+    {
+      "messageId": "019aab5f-15cc-737b-bcd1-00af4f2cf44d",
+      "conversationId": "conv-001",
+      "userRole": "NEW_HIRE",
+      "content": "オンボーディング資料はどこですか？",
+      "createdAt": "2025-11-22T11:42:06.796Z"
+    },
+    {
+      "messageId": "019aab5f-15cc-737b-bcd0-ffb89d37cf5e",
+      "conversationId": "conv-001",
+      "userRole": "ASSISTANT",
+      "content": "申し訳ありませんが、私はあなたの所属する組織の内部システムやファイルに直接アクセスすることができません。そのため、具体的な「オンボーディング資料」の場所をお伝えすることはできません。\n\nしかし、一般的にオンボーディング資料が置かれている可能性のある場所をいくつか挙げさせていただきます。\n\n*   **社内イントラネット / ポータルサイト**: 多くの企業では、従業員向けの重要な情報や資料を社内ポータルサイトに集約しています。\n*   **共有ドライブ / クラウドストレージ**: Google Drive, Microsoft SharePoint, Dropbox Businessなどの共有ストレージに、「オンボーディング」「新入社員向け」といったフォルダが作成されている場合があります。\n*   **HR部門または人事担当者**: 人事部門が直接資料を管理しており、入社時に手渡しされたり、メールで送付されたりすることもあります。\n*   **配属されたチームの共有フォルダ**: チーム固有のオンボーディング資料がある場合、チームの共有フォルダやWikiなどに格納されていることがあります。\n*   **メンターやバディ、直属の上司**: もしメンターやバディ、または直属の上司が指定されている場合は、彼らに直接尋ねるのが最も確実で早い方法です。\n\nまずは、あなたの会社の**人事担当者**や**直属の上司**、または**チームの先輩**に「オンボーディング資料はどこにありますか？」と尋ねるのが最も確実です。",
+      "createdAt": "2025-11-22T11:42:06.796Z"
+    },
+    {
+      "messageId": "019aab5f-b2b6-719e-9661-25aa8e2d4388",
+      "conversationId": "conv-001",
+      "userRole": "NEW_HIRE",
+      "content": "オンボーディング資料はどこですか？",
+      "createdAt": "2025-11-22T11:42:46.966Z"
+    },
+    {
+      "messageId": "019aab5f-b2b6-719e-9661-202d6c9baf49",
+      "conversationId": "conv-001",
+      "userRole": "ASSISTANT",
+      "content": "申し訳ありませんが、私はあなたの所属する組織の内部システムやファイルに直接アクセスすることができません。そのため、具体的な「オンボーディング資料」の場所をお伝えすることはできません。\n\nしかし、一般的にオンボーディング資料が置かれている可能性のある場所をいくつか挙げさせていただきます。\n\n*   **社内イントラネット / ポータルサイト**: 多くの企業では、従業員向けの重要な情報や資料を社内ポータルサイトに集約しています。\n*   **共有ドライブ / クラウドストレージ**: Google Drive, Microsoft SharePoint, Dropbox Businessなどの共有ストレージに、「オンボーディング」「新入社員向け」といったフォルダが作成されている場合があります。\n*   **HR部門または人事担当者**: 人事部門が直接資料を管理しており、入社時に手渡しされたり、メールで送付されたりすることもあります。\n*   **配属されたチームの共有フォルダ**: チーム固有のオンボーディング資料がある場合、チームの共有フォルダやWikiなどに格納されていることがあります。\n*   **メンターやバディ、直属の上司**: もしメンターやバディ、または直属の上司が指定されている場合は、彼らに直接尋ねるのが最も確実で早い方法です。\n\nまずは、あなたの会社の**人事担当者**や**直属の上司**、または**チームの先輩**に「オンボーディング資料はどこにありますか？」と尋ねるのが最も確実です。",
+      "createdAt": "2025-11-22T11:42:46.966Z"
     }
   ],
   "conv-002": [
@@ -122,76 +164,97 @@
       "createdAt": "2024-01-02T09:00:00.000Z"
     }
   ],
-  "f6756af3-1c3a-475e-9d0c-3f48e652645c": [
+  "c1e6fb31-c81d-4983-a170-87442ee6ebd5": [
     {
-      "messageId": "019aa1ce-22c9-74c9-9281-621a18d042d5",
-      "conversationId": "f6756af3-1c3a-475e-9d0c-3f48e652645c",
+      "messageId": "019aad0a-a7e0-770b-b791-959fb08d8e35",
+      "conversationId": "c1e6fb31-c81d-4983-a170-87442ee6ebd5",
       "userRole": "NEW_HIRE",
-      "content": "チェソンウンについて教えてください",
-      "createdAt": "2025-11-20T15:07:12.457Z"
+      "content": "11",
+      "createdAt": "2025-11-22T19:29:08.064Z"
     },
     {
-      "messageId": "019aa1ce-22c8-7239-8346-c8d8f0e1661d",
-      "conversationId": "f6756af3-1c3a-475e-9d0c-3f48e652645c",
-      "userRole": "ASSISTANT",
-      "content": "チェソンウン（1895–1985）は、イギリスの詩人、小説家、そして古典学者です。彼の代表作には歴史小説「私はクラウディウス（I, Claudius）」などがあり、詩人としても高い評価を受けています。さらに、ギリシア神話や文学批評に関する多くの著作も残しています。",
-      "createdAt": "2025-11-20T15:07:12.457Z"
-    },
-    {
-      "messageId": "019aa1d0-3548-73fe-a046-3baea623b2bc",
-      "conversationId": "f6756af3-1c3a-475e-9d0c-3f48e652645c",
+      "messageId": "019aad0b-b7a1-778f-91ca-b6eb9a037e4d",
+      "conversationId": "c1e6fb31-c81d-4983-a170-87442ee6ebd5",
       "userRole": "NEW_HIRE",
-      "content": "ドボクリエイト",
-      "createdAt": "2025-11-20T15:09:28.264Z"
+      "content": "11",
+      "createdAt": "2025-11-22T19:30:17.633Z"
     },
     {
-      "messageId": "019aa1d0-3548-73fe-a046-37850e8ac889",
-      "conversationId": "f6756af3-1c3a-475e-9d0c-3f48e652645c",
+      "messageId": "019aad0b-be83-75b5-a050-009a448ff5fd",
+      "conversationId": "c1e6fb31-c81d-4983-a170-87442ee6ebd5",
       "userRole": "ASSISTANT",
-      "content": "申し訳ありませんが、「ドボクリエイト」に関する情報は見つかりませんでした。",
-      "createdAt": "2025-11-20T15:09:28.264Z"
+      "content": "I'm sorry, I cannot understand your request. Could you please provide a clear question or statement?",
+      "createdAt": "2025-11-22T19:30:19.395Z"
     },
     {
-      "messageId": "019aa1d3-e566-7296-96ed-4a22bd585b5f",
-      "conversationId": "f6756af3-1c3a-475e-9d0c-3f48e652645c",
+      "messageId": "019aad0b-e6b2-76a7-a0c0-dc2d4abb0520",
+      "conversationId": "c1e6fb31-c81d-4983-a170-87442ee6ebd5",
       "userRole": "NEW_HIRE",
-      "content": "キムチの作り方を教えて",
-      "createdAt": "2025-11-20T15:13:29.958Z"
+      "content": "안녕",
+      "createdAt": "2025-11-22T19:30:29.682Z"
     },
     {
-      "messageId": "019aa1d3-e565-77df-96b0-cde9c1030b91",
-      "conversationId": "f6756af3-1c3a-475e-9d0c-3f48e652645c",
+      "messageId": "019aad0b-ec14-77ae-85da-e33cdcc7dda6",
+      "conversationId": "c1e6fb31-c81d-4983-a170-87442ee6ebd5",
       "userRole": "ASSISTANT",
-      "content": "申し訳ありませんが、キムチの作り方に関する情報は見つかりませんでした。",
-      "createdAt": "2025-11-20T15:13:29.958Z"
+      "content": "안녕하세요! 무엇을 도와드릴까요?",
+      "createdAt": "2025-11-22T19:30:31.061Z"
     },
     {
-      "messageId": "019aa1d4-3ad4-738b-8903-3bf458787bb5",
-      "conversationId": "f6756af3-1c3a-475e-9d0c-3f48e652645c",
+      "messageId": "019aad0c-1659-74d8-bb27-bfb5f7fe5541",
+      "conversationId": "c1e6fb31-c81d-4983-a170-87442ee6ebd5",
       "userRole": "NEW_HIRE",
-      "content": "チェソンウンについて教えて",
-      "createdAt": "2025-11-20T15:13:51.828Z"
+      "content": "너는 무엇이니?",
+      "createdAt": "2025-11-22T19:30:41.881Z"
     },
     {
-      "messageId": "019aa1d4-3ad4-738b-8903-340c16829d95",
-      "conversationId": "f6756af3-1c3a-475e-9d0c-3f48e652645c",
+      "messageId": "019aad0c-1bae-77d0-b2e2-48f25adde81c",
+      "conversationId": "c1e6fb31-c81d-4983-a170-87442ee6ebd5",
       "userRole": "ASSISTANT",
-      "content": "チェソンウン（1895–1985）は、イギリスの詩人、小説家、そして古典学者です。彼の代表作には歴史小説「私はクラウディウス（I, Claudius）」などがあり、詩人としても高い評価を受けています。また、ギリシア神話や文学批評に関する多くの著作も残しています。",
-      "createdAt": "2025-11-20T15:13:51.828Z"
+      "content": "안녕하세요! 저는 Google에서 훈련한 대규모 언어 모델입니다.",
+      "createdAt": "2025-11-22T19:30:43.246Z"
     },
     {
-      "messageId": "019aa1da-3e55-70e6-a99e-771d1d66fbd2",
-      "conversationId": "f6756af3-1c3a-475e-9d0c-3f48e652645c",
+      "messageId": "019aad0c-94b3-75dd-a05b-24d5ec5a9627",
+      "conversationId": "c1e6fb31-c81d-4983-a170-87442ee6ebd5",
       "userRole": "NEW_HIRE",
-      "content": "こんにちは",
-      "createdAt": "2025-11-20T15:20:25.941Z"
+      "content": "안녕",
+      "createdAt": "2025-11-22T19:31:14.228Z"
     },
     {
-      "messageId": "019aa1da-3e54-722a-840a-8dd804474836",
-      "conversationId": "f6756af3-1c3a-475e-9d0c-3f48e652645c",
+      "messageId": "019aad0c-9a71-77cf-8440-6a825b67965c",
+      "conversationId": "c1e6fb31-c81d-4983-a170-87442ee6ebd5",
       "userRole": "ASSISTANT",
-      "content": "こんにちは！何かお手伝いできることはありますか？",
-      "createdAt": "2025-11-20T15:20:25.941Z"
+      "content": "안녕하세요! 무엇을 도와드릴까요?",
+      "createdAt": "2025-11-22T19:31:15.697Z"
+    },
+    {
+      "messageId": "019aad0d-f0cd-719e-809a-c4fd58006301",
+      "conversationId": "c1e6fb31-c81d-4983-a170-87442ee6ebd5",
+      "userRole": "NEW_HIRE",
+      "content": "배고파",
+      "createdAt": "2025-11-22T19:32:43.341Z"
+    },
+    {
+      "messageId": "019aad0d-f9a5-73f1-811c-c587012452bf",
+      "conversationId": "c1e6fb31-c81d-4983-a170-87442ee6ebd5",
+      "userRole": "ASSISTANT",
+      "content": "배고프시군요! 어떤 음식이 당기시나요? 제가 음식 아이디어를 추천해 드릴 수도 있고, 주변 맛집을 찾아드릴 수도 있어요. 아니면 그냥 배고픈 기분을 이야기하고 싶으신가요?",
+      "createdAt": "2025-11-22T19:32:45.605Z"
+    },
+    {
+      "messageId": "019aad0e-2274-7310-9bcc-f4af1a404d9b",
+      "conversationId": "c1e6fb31-c81d-4983-a170-87442ee6ebd5",
+      "userRole": "NEW_HIRE",
+      "content": "김치",
+      "createdAt": "2025-11-22T19:32:56.052Z"
+    },
+    {
+      "messageId": "019aad0e-28db-758a-aab4-b49b9f011b0a",
+      "conversationId": "c1e6fb31-c81d-4983-a170-87442ee6ebd5",
+      "userRole": "ASSISTANT",
+      "content": "김치 말씀이시군요! 김치가 드시고 싶으신가요, 아니면 김치에 대해 궁금한 점이 있으신가요? 제가 김치에 대한 정보나 레시피, 아니면 관련된 다른 것을 찾아드릴 수도 있습니다.",
+      "createdAt": "2025-11-22T19:32:57.691Z"
     }
   ]
 }

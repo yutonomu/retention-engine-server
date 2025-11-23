@@ -1,6 +1,14 @@
-import { GoogleGenAI, type ImportFileOperation } from '@google/genai';
+import {
+  GoogleGenAI,
+  type GenerateContentResponse,
+  type GroundingChunk,
+  type GroundingMetadata,
+  type ImportFileOperation,
+} from '@google/genai';
+import { Logger } from '@nestjs/common';
 import { promises as fs } from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 import type { Message, UserRole } from '../../../Entity/Message';
 import {
   type FileSeed,
@@ -18,6 +26,15 @@ import type {
 
 const POLL_INTERVAL_MS = 5000;
 const STORE_REGISTRY_PATH = path.resolve('store-registry.json');
+const FILE_SEARCH_INSTRUCTION = `
+あなたは、提供された【コンテキスト】に厳密に基づいて質問に回答するAIアシスタントです。以下のルールを必ず守ってください。
+
+1. 厳密な事実に基づいた回答: コンテキストに含まれていない情報は一切含めず、「情報が見つかりませんでした」と答えてください。推測や一般常識は使わないでください。
+2. 引用元の明記: 回答の各文がどのコンテキスト（ファイル名やチャンクIDなど）に基づいているかを、必ず引用形式で示してください（例: [onboarding-tips.txt, chunk-1]）。
+3. 日本語での出力: 丁寧で平易な日本語で回答してください。
+
+FileSearchが返すドキュメントの根拠が確認できない場合は、必ず「情報が見つかりませんでした」と返してください。
+`;
 
 function mapUserRoleToRole(role: UserRole) {
   return role === 'NEW_HIRE' ? ('user' as const) : ('model' as const);
@@ -25,6 +42,8 @@ function mapUserRoleToRole(role: UserRole) {
 
 export class GeminiFileSearchClient {
   private readonly ai: GoogleGenAI;
+
+  private readonly logger = new Logger(GeminiFileSearchClient.name);
 
   private storeRegistry: StoreRegistry = {};
 
@@ -65,10 +84,16 @@ export class GeminiFileSearchClient {
     await this.ensureStoresReady();
     const history = options.history ?? [];
 
-    const contents = history.map((message) => ({
-      role: mapUserRoleToRole(message.userRole),
-      parts: [{ text: message.content }],
-    }));
+    const contents = [
+      {
+        role: 'user' as const,
+        parts: [{ text: FILE_SEARCH_INSTRUCTION.trim() }],
+      },
+      ...history.map((message) => ({
+        role: mapUserRoleToRole(message.userRole),
+        parts: [{ text: message.content }],
+      })),
+    ];
 
     contents.push({
       role: 'user' as const,
@@ -76,7 +101,7 @@ export class GeminiFileSearchClient {
     });
 
     const response = await this.ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-2.5-pro',
       contents,
       config: {
         tools: [
@@ -88,6 +113,8 @@ export class GeminiFileSearchClient {
         ],
       },
     });
+
+    this.logCitedChunks(response);
 
     const answer = this.extractText(response);
     const conversationId = options.conversationId;
@@ -195,10 +222,20 @@ export class GeminiFileSearchClient {
   }
 
   private async uploadAndImportFile(fileSeed: FileSeed, storeName: string) {
+    const safeDisplayName = this.toSafeDisplayName(
+      fileSeed.displayName ?? path.basename(fileSeed.path),
+    );
+
+    let tempFilePath: string | null = null;
+    const uploadPath = await this.getSafeFilePath(fileSeed);
+    if (uploadPath !== fileSeed.path) {
+      tempFilePath = uploadPath;
+    }
+
     const uploadedFile = await this.ai.files.upload({
-      file: fileSeed.path,
+      file: uploadPath,
       config: {
-        displayName: fileSeed.displayName,
+        displayName: safeDisplayName,
         mimeType: fileSeed.mimeType ?? 'text/plain',
       },
     });
@@ -213,7 +250,35 @@ export class GeminiFileSearchClient {
       fileName: uploadedFileName,
     });
 
-    await this.pollOperation(operation);
+    try {
+      await this.pollOperation(operation);
+    } finally {
+      if (tempFilePath) {
+        await fs.unlink(tempFilePath).catch(() => undefined);
+      }
+    }
+  }
+
+  private toSafeDisplayName(name: string): string {
+    // Gemini API headers reject non-ASCII bytes; replace them to avoid ByteString errors.
+    const ascii = name.normalize('NFKD').replace(/[^\x20-\x7E]/g, '_');
+    return ascii || 'file';
+  }
+
+  private async getSafeFilePath(fileSeed: FileSeed): Promise<string> {
+    const baseName = path.basename(fileSeed.path);
+    // If basename is already ASCII, no need to copy.
+    if (/^[\x20-\x7E]+$/.test(baseName)) {
+      return fileSeed.path;
+    }
+
+    const safeBaseName = this.toSafeDisplayName(baseName);
+    const tempPath = path.join(
+      os.tmpdir(),
+      `gemini-upload-${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeBaseName}`,
+    );
+    await fs.copyFile(fileSeed.path, tempPath);
+    return tempPath;
   }
 
   private async pollOperation(
@@ -255,6 +320,155 @@ export class GeminiFileSearchClient {
       JSON.stringify(this.storeRegistry, null, 2),
       'utf8',
     );
+  }
+
+  private logCitedChunks(response: GenerateContentResponse): void {
+    const candidates = response.candidates ?? [];
+    if (!candidates.length) {
+      return;
+    }
+
+    candidates.forEach((candidate, candidateIndex) => {
+      const groundingMetadata = candidate?.groundingMetadata;
+      if (!groundingMetadata) {
+        return;
+      }
+      this.logGroundingMetadata(groundingMetadata, candidateIndex);
+    });
+  }
+
+  private logGroundingMetadata(
+    metadata: GroundingMetadata,
+    candidateIndex: number,
+  ): void {
+    const chunks = metadata.groundingChunks ?? [];
+    const supports = metadata.groundingSupports ?? [];
+
+    if (!chunks.length) {
+      return;
+    }
+
+    if (!supports.length) {
+      chunks.forEach((chunk, chunkIndex) => {
+        const description = this.describeChunk(chunk);
+        const snippet = this.extractChunkSnippet(chunk);
+        const pageSpan = this.formatPageSpan(chunk);
+        this.logger.log(
+          [
+            `Gemini FileSearch retrieved chunk (candidate=${candidateIndex}, chunk=${chunkIndex})`,
+            `source="${description}"`,
+            pageSpan ? `pages=${pageSpan}` : null,
+            snippet ? `chunkSnippet="${snippet}"` : null,
+            '[no grounding support metadata]',
+          ]
+            .filter(Boolean)
+            .join(' '),
+        );
+      });
+      return;
+    }
+
+    supports.forEach((support, supportIndex) => {
+      const segmentText = support.segment?.text?.trim();
+      (support.groundingChunkIndices ?? []).forEach((chunkIndex) => {
+        const chunk = chunks[chunkIndex];
+        if (!chunk) {
+          return;
+        }
+        const description = this.describeChunk(chunk);
+        const snippet = this.extractChunkSnippet(chunk);
+        const pageSpan = this.formatPageSpan(chunk);
+        this.logger.log(
+          [
+            `Gemini FileSearch citation (candidate=${candidateIndex}, support=${supportIndex}, chunk=${chunkIndex})`,
+            `source="${description}"`,
+            pageSpan ? `pages=${pageSpan}` : null,
+            snippet ? `chunkSnippet="${snippet}"` : null,
+            segmentText
+              ? `answerSegment="${this.truncate(segmentText)}"`
+              : null,
+          ]
+            .filter(Boolean)
+            .join(' '),
+        );
+      });
+    });
+  }
+
+  private describeChunk(chunk: GroundingChunk): string {
+    const retrieved = chunk.retrievedContext;
+    if (retrieved) {
+      return (
+        retrieved.title ??
+        this.extractDocName(retrieved.documentName) ??
+        retrieved.uri ??
+        'retrieved-context'
+      );
+    }
+
+    if (chunk.web) {
+      return chunk.web.title ?? chunk.web.uri ?? 'web-chunk';
+    }
+
+    if (chunk.maps) {
+      return chunk.maps.title ?? 'maps-chunk';
+    }
+
+    return 'unknown-chunk';
+  }
+
+  private extractChunkSnippet(chunk: GroundingChunk): string | null {
+    const text =
+      chunk.retrievedContext?.ragChunk?.text ??
+      chunk.retrievedContext?.text ??
+      chunk.web?.title ??
+      chunk.web?.uri;
+
+    const trimmed = text?.trim();
+    if (!trimmed) {
+      return null;
+    }
+    return this.truncate(trimmed);
+  }
+
+  private formatPageSpan(chunk: GroundingChunk): string | null {
+    const span = chunk.retrievedContext?.ragChunk?.pageSpan;
+    if (!span) {
+      return null;
+    }
+
+    const first = span.firstPage ?? span.lastPage;
+    const last = span.lastPage ?? span.firstPage;
+
+    if (!first && !last) {
+      return null;
+    }
+
+    if (first && last && first !== last) {
+      return `${first}-${last}`;
+    }
+
+    return String(first ?? last);
+  }
+
+  private extractDocName(documentName?: string): string | null {
+    if (!documentName) {
+      return null;
+    }
+
+    const segments = documentName.split('/').filter(Boolean);
+    if (!segments.length) {
+      return null;
+    }
+
+    return segments[segments.length - 1] ?? null;
+  }
+
+  private truncate(text: string, maxLength = 200): string {
+    if (text.length <= maxLength) {
+      return text;
+    }
+    return `${text.slice(0, maxLength)}...`;
   }
 
   private extractText(response: unknown): string {
