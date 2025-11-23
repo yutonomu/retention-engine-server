@@ -6,12 +6,15 @@ import { MessageRepository } from '../message/repositories/message.repository';
 import { FEEDBACK_PORT } from './feedback.port';
 import { MESSAGE_PORT } from '../message/message.port';
 import { ConversationModule } from '../conversation/conversation.module';
+import { FeedbackDocumentService } from './feedbackDocument.service';
+import { LlmModule } from '../llm/llm.module';
 
 @Module({
-  imports: [ConversationModule],
+  imports: [ConversationModule, LlmModule],
   controllers: [FeedbackController],
   providers: [
     FeedbackService,
+    FeedbackDocumentService,
     {
       provide: FEEDBACK_PORT,
       useClass: FeedbackRepository,

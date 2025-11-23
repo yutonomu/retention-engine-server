@@ -1,6 +1,8 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Logger, Post, Query } from '@nestjs/common';
 import { FeedbackService } from './feedback.service';
 import type { Feedback } from './feedback.types';
+import { FeedbackDocumentService } from './feedbackDocument.service';
+import { LlmService } from '../llm/llm.service';
 
 interface CreateFeedbackRequestBody {
   messageId: string;
@@ -18,7 +20,13 @@ interface CreateFeedbackResponse {
 
 @Controller('feedback')
 export class FeedbackController {
-  constructor(private readonly feedbackService: FeedbackService) {}
+  constructor(
+    private readonly feedbackService: FeedbackService,
+    private readonly feedbackDocumentService: FeedbackDocumentService,
+    private readonly llmService: LlmService,
+  ) {}
+
+  private readonly logger = new Logger(FeedbackController.name);
 
   @Get()
   async getFeedbackByMessage(
@@ -37,6 +45,22 @@ export class FeedbackController {
       authorId: dto.authorId,
       content: dto.content,
     });
+    try {
+      const summaryDoc =
+        await this.feedbackDocumentService.createSummaryDocument(feedback);
+      await this.llmService.uploadDocument({
+        filePath: summaryDoc.filePath,
+        displayName: summaryDoc.displayName,
+        mimeType: 'text/plain',
+      });
+    } catch (error) {
+      // 要約やアップロード失敗時もレスポンスは成功させる
+      const message =
+        (error as Error)?.message ?? 'Failed to process feedback document.';
+      this.logger.warn(
+        `Feedback document processing skipped for feedbackId="${feedback.fb_id}": ${message}`,
+      );
+    }
     return { data: feedback };
   }
 }

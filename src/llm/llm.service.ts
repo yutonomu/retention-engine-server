@@ -7,7 +7,6 @@ import {
 } from './external/fileSearchAssistant';
 import type { Message } from '../Entity/Message';
 import { createUUID } from '../common/uuid';
-import { DocumentUploadRepository } from './repositories/documentUploadRepository';
 import type { UUID } from '../common/uuid';
 import * as path from 'path';
 
@@ -21,6 +20,13 @@ export type LlmGenerateResult = {
   message: Message;
 };
 
+export type UploadDocumentCommand = {
+  filePath: string;
+  displayName?: string;
+  mimeType?: string;
+  id?: UUID;
+};
+
 @Injectable()
 export class LlmService {
   private readonly logger = new Logger(LlmService.name);
@@ -28,7 +34,6 @@ export class LlmService {
   constructor(
     @Inject(MESSAGE_PORT)
     private readonly messagePort: messagePort.MessagePort,
-    private readonly documentUploadRepository: DocumentUploadRepository,
     @Inject(FileSearchAssistant)
     private readonly fileSearchAssistant: FileSearchAssistant,
   ) {}
@@ -93,30 +98,19 @@ export class LlmService {
     return llmResult;
   }
 
-  async uploadPendingDocuments(): Promise<number> {
-    const pendingDocuments =
-      await this.documentUploadRepository.getPendingDocuments();
-    if (!pendingDocuments.length) {
-      this.logger.log('No pending documents to upload.');
-      return 0;
-    }
+  async uploadDocument(command: UploadDocumentCommand): Promise<void> {
+    const fileDocument: FileDocument = {
+      id: command.id ?? createUUID(),
+      filePath: command.filePath,
+      displayName:
+        command.displayName ?? this.extractDisplayName(command.filePath),
+      mimeType: command.mimeType ?? this.detectMimeType(command.filePath),
+    };
 
-    const fileDocuments: FileDocument[] = pendingDocuments.map((doc) => ({
-      id: doc.id,
-      filePath: doc.filePath,
-      displayName: this.extractDisplayName(doc.filePath),
-      mimeType: this.detectMimeType(doc.filePath),
-    }));
-
-    await this.fileSearchAssistant.uploadDocuments(fileDocuments);
-    await this.documentUploadRepository.markDocumentsUploaded(
-      pendingDocuments.map((doc) => doc.id),
-    );
-
+    await this.fileSearchAssistant.uploadDocuments([fileDocument]);
     this.logger.log(
-      `Uploaded ${pendingDocuments.length} pending documents to FileSearch.`,
+      `Uploaded document to FileSearch: displayName="${fileDocument.displayName}" path="${fileDocument.filePath}"`,
     );
-    return pendingDocuments.length;
   }
 
   private extractDisplayName(filePath: string): string {

@@ -2,8 +2,18 @@ import { Body, Controller, Logger, Post, UsePipes } from '@nestjs/common';
 import { llmGenerateRequestSchema } from './dto/llmGenerateRequest.dto';
 import type { LlmGenerateRequestDto } from './dto/llmGenerateRequest.dto';
 import { ZodValidationPipe } from '../common/pipes/zodValidation.pipe';
-import { LlmService, type LlmGenerateCommand } from './llm.service';
+import {
+  LlmService,
+  type LlmGenerateCommand,
+  type UploadDocumentCommand,
+} from './llm.service';
 import type { UUID } from '../common/uuid';
+
+interface UploadDocumentRequestBody {
+  filePath: string;
+  displayName?: string;
+  mimeType?: string;
+}
 
 @Controller('llm')
 export class LlmController {
@@ -31,9 +41,14 @@ export class LlmController {
   }
 
   @Post('documentUpload')
-  async documentUpload() {
+  async documentUpload(@Body() payload: UploadDocumentRequestBody) {
     // TODO: リクエスト経由のファイルアップロードを実装し、受け取ったファイルをストレージ保存後に documentUploadRepository へ登録する
-    const uploadedCount = await this.llmService.uploadPendingDocuments();
-    return { uploadedCount };
+    const command: UploadDocumentCommand = {
+      filePath: payload.filePath,
+      displayName: payload.displayName,
+      mimeType: payload.mimeType,
+    };
+    await this.llmService.uploadDocument(command);
+    return { uploaded: true };
   }
 }
