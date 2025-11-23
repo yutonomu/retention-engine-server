@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { JsonMessageDataAccess } from './repositories/JsonMessageDataAccess';
+import * as messagePort from '../message/message.port';
+import { MESSAGE_PORT } from '../message/message.port';
 import {
   FileSearchAssistant,
   type FileDocument,
@@ -25,7 +26,8 @@ export class LlmService {
   private readonly logger = new Logger(LlmService.name);
 
   constructor(
-    private readonly historyStore: JsonMessageDataAccess,
+    @Inject(MESSAGE_PORT)
+    private readonly messagePort: messagePort.MessagePort,
     private readonly documentUploadRepository: DocumentUploadRepository,
     @Inject(FileSearchAssistant)
     private readonly fileSearchAssistant: FileSearchAssistant,
@@ -36,9 +38,10 @@ export class LlmService {
       `Processing LLM generate command=${JSON.stringify(command)}`,
     );
 
-    const history = await this.historyStore.fetchMessages(
-      command.conversationId,
+    const history = await this.messagePort.findAllByConversation(
+      command.conversationId.toString(),
     );
+
     this.logger.log(
       `Loaded conversation history conversationId="${command.conversationId}" messages=${JSON.stringify(
         history,
@@ -52,7 +55,11 @@ export class LlmService {
       content: command.prompt,
       createdAt: new Date(),
     };
-    await this.historyStore.saveMessages(command.conversationId, [userMessage]);
+    await this.messagePort.createMessage({
+      convId: command.conversationId.toString(),
+      role: 'NEW_HIRE',
+      content: command.prompt,
+    });
 
     let llmResult: { answer: string; message: Message };
     try {
@@ -60,7 +67,7 @@ export class LlmService {
         command.prompt,
         {
           conversationId: command.conversationId,
-          history: [...history, userMessage],
+          history: [...(history as unknown as Message[]), userMessage],
         },
       );
     } catch (error) {
@@ -82,9 +89,11 @@ export class LlmService {
       };
     }
 
-    await this.historyStore.saveMessages(command.conversationId, [
-      llmResult.message,
-    ]);
+    await this.messagePort.createMessage({
+      convId: command.conversationId.toString(),
+      role: 'ASSISTANT',
+      content: llmResult.answer,
+    });
     this.logger.log(
       `Appended assistant message to conversationId="${command.conversationId}" message=${JSON.stringify(
         llmResult.message,
@@ -139,5 +148,4 @@ export class LlmService {
         return 'application/octet-stream';
     }
   }
-
 }

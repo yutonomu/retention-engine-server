@@ -16,6 +16,6 @@ import { MESSAGE_PORT } from './message.port';
       useClass: MessageRepository,
     },
   ],
-  exports: [MessageService],
+  exports: [MessageService, MESSAGE_PORT],
 })
 export class MessageModule {}

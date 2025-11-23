@@ -26,6 +26,8 @@ export class FeedbackService {
     if (!messageId?.trim()) {
       throw new BadRequestException('messageId is required');
     }
+
+    // TODO: messageいらないんじゃ？
     const message = await this.messageRepository.findById(messageId);
     const items = await this.feedbackRepository.findByMessageId(message.msg_id);
     return { items };
