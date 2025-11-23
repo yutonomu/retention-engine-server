@@ -1,6 +1,7 @@
 import { GoogleGenAI, type ImportFileOperation } from '@google/genai';
 import { promises as fs } from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 import type { Message, UserRole } from '../../../Entity/Message';
 import {
   type FileSeed,
@@ -76,7 +77,7 @@ export class GeminiFileSearchClient {
     });
 
     const response = await this.ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-2.5-pro',
       contents,
       config: {
         tools: [
@@ -195,10 +196,20 @@ export class GeminiFileSearchClient {
   }
 
   private async uploadAndImportFile(fileSeed: FileSeed, storeName: string) {
+    const safeDisplayName = this.toSafeDisplayName(
+      fileSeed.displayName ?? path.basename(fileSeed.path),
+    );
+
+    let tempFilePath: string | null = null;
+    const uploadPath = await this.getSafeFilePath(fileSeed);
+    if (uploadPath !== fileSeed.path) {
+      tempFilePath = uploadPath;
+    }
+
     const uploadedFile = await this.ai.files.upload({
-      file: fileSeed.path,
+      file: uploadPath,
       config: {
-        displayName: fileSeed.displayName,
+        displayName: safeDisplayName,
         mimeType: fileSeed.mimeType ?? 'text/plain',
       },
     });
@@ -213,7 +224,35 @@ export class GeminiFileSearchClient {
       fileName: uploadedFileName,
     });
 
-    await this.pollOperation(operation);
+    try {
+      await this.pollOperation(operation);
+    } finally {
+      if (tempFilePath) {
+        await fs.unlink(tempFilePath).catch(() => undefined);
+      }
+    }
+  }
+
+  private toSafeDisplayName(name: string): string {
+    // Gemini API headers reject non-ASCII bytes; replace them to avoid ByteString errors.
+    const ascii = name.normalize('NFKD').replace(/[^\x20-\x7E]/g, '_');
+    return ascii || 'file';
+  }
+
+  private async getSafeFilePath(fileSeed: FileSeed): Promise<string> {
+    const baseName = path.basename(fileSeed.path);
+    // If basename is already ASCII, no need to copy.
+    if (/^[\x20-\x7E]+$/.test(baseName)) {
+      return fileSeed.path;
+    }
+
+    const safeBaseName = this.toSafeDisplayName(baseName);
+    const tempPath = path.join(
+      os.tmpdir(),
+      `gemini-upload-${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeBaseName}`,
+    );
+    await fs.copyFile(fileSeed.path, tempPath);
+    return tempPath;
   }
 
   private async pollOperation(
