@@ -5,7 +5,11 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
-  const defaultOrigins = ['http://localhost:3000', 'http://localhost:3001'];
+  const defaultOrigins = [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:5000',
+  ];
   const corsOrigins =
     config
       .get<string>('CORS_ORIGIN')
