@@ -70,6 +70,13 @@ $ mau deploy
 
 With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
 
+## Docker / Cloud Run
+
+- Local dev: `docker compose up --build server` (builds the same image as production, maps host 5001 -> container 8080, and starts the optional Postgres `db` service).
+- Database host inside containers is `db`; default local connection string is `postgresql://app:app@db:5432/app` (adjust when the app begins to use a DB).
+- Cloud Run: `gcloud run deploy <SERVICE_NAME> --source . --region <REGION> --allow-unauthenticated --set-env-vars KEY=VALUE` (PORT is provided by Cloud Run; the app already binds to it).
+- Keep secrets in `.env` for local compose runs; do not bake them into images—use Cloud Run service env vars instead.
+
 ## Resources
 
 Check out a few resources that may come in handy when working with NestJS:

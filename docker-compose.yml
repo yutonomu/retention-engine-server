@@ -1,0 +1,36 @@
+version: "3.9"
+
+services:
+  server:
+    # Build the same image used for Cloud Run to keep parity.
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: retention-engine-server:local
+    ports:
+      - "5001:8080" # host:container (Cloud Run also listens on 8080)
+    environment:
+      NODE_ENV: development
+      PORT: 8080
+      # DATABASE_URL: postgresql://app:app@db:5432/app # enable when the app uses a local DB
+    env_file:
+      - .env # supply SUPABASE_*, GOOGLE_API_KEY, etc. without baking secrets into the image
+    depends_on:
+      - db
+    # Uses CMD from Dockerfile: node dist/main.js
+
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: app
+    ports:
+      - "5432:5432" # expose for local tools; drop if not needed
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    # server connects via host "db" (the Compose service name)
+
+volumes:
+  db_data:
