@@ -53,13 +53,13 @@ describe('MBTI Endpoints (e2e)', () => {
     });
 
     describe('GET /users/mbti', () => {
-        it('should return 401 without authentication', () => {
+        it('認証なしで401を返すべき', () => {
             return request(app.getHttpServer())
                 .get('/users/mbti')
                 .expect(HttpStatus.UNAUTHORIZED);
         });
 
-        it('should return 401 with invalid token', () => {
+        it('無効なトークンで401を返すべき', () => {
             return request(app.getHttpServer())
                 .get('/users/mbti')
                 .set('Authorization', `Bearer ${mockInvalidToken}`)
@@ -72,7 +72,7 @@ describe('MBTI Endpoints (e2e)', () => {
         // 2. Generate valid test tokens from your auth provider
         // 3. Use a test authentication setup
 
-        it.skip('should return null when MBTI is not set', async () => {
+        it.skip('MBTIが設定されていない場合、nullを返すべき', async () => {
             const response = await request(app.getHttpServer())
                 .get('/users/mbti')
                 .set('Authorization', `Bearer ${mockNewHireToken}`)
@@ -81,7 +81,7 @@ describe('MBTI Endpoints (e2e)', () => {
             expect(response.body).toEqual({ mbti: null });
         });
 
-        it.skip('should return MBTI when it is set', async () => {
+        it.skip('MBTIが設定されている場合、その値を返すべき', async () => {
             // First set MBTI
             await userService.updateUserMbti('550e8400-e29b-41d4-a716-446655440001', 'INTJ');
 
@@ -95,14 +95,14 @@ describe('MBTI Endpoints (e2e)', () => {
     });
 
     describe('PUT /users/mbti', () => {
-        it('should return 401 without authentication', () => {
+        it('認証なしで401を返すべき', () => {
             return request(app.getHttpServer())
                 .put('/users/mbti')
                 .send({ mbti: 'INTJ' })
                 .expect(HttpStatus.UNAUTHORIZED);
         });
 
-        it('should return 401 with invalid token', () => {
+        it('無効なトークンで401を返すべき', () => {
             return request(app.getHttpServer())
                 .put('/users/mbti')
                 .set('Authorization', `Bearer ${mockInvalidToken}`)
@@ -110,7 +110,7 @@ describe('MBTI Endpoints (e2e)', () => {
                 .expect(HttpStatus.UNAUTHORIZED);
         });
 
-        it.skip('should return 403 for MENTOR role', () => {
+        it.skip('MENTORロールの場合、403を返すべき', () => {
             return request(app.getHttpServer())
                 .put('/users/mbti')
                 .set('Authorization', `Bearer ${mockMentorToken}`)
@@ -118,7 +118,7 @@ describe('MBTI Endpoints (e2e)', () => {
                 .expect(HttpStatus.FORBIDDEN);
         });
 
-        it.skip('should return 400 for invalid MBTI type', () => {
+        it.skip('無効なMBTIタイプの場合、400を返すべき', () => {
             return request(app.getHttpServer())
                 .put('/users/mbti')
                 .set('Authorization', `Bearer ${mockNewHireToken}`)
@@ -129,7 +129,7 @@ describe('MBTI Endpoints (e2e)', () => {
                 });
         });
 
-        it.skip('should return 400 for lowercase MBTI', () => {
+        it.skip('小文字のMBTIの場合、400を返すべき', () => {
             return request(app.getHttpServer())
                 .put('/users/mbti')
                 .set('Authorization', `Bearer ${mockNewHireToken}`)
@@ -137,7 +137,7 @@ describe('MBTI Endpoints (e2e)', () => {
                 .expect(HttpStatus.BAD_REQUEST);
         });
 
-        it.skip('should return 400 for missing MBTI field', () => {
+        it.skip('MBTIフィールドが欠落している場合、400を返すべき', () => {
             return request(app.getHttpServer())
                 .put('/users/mbti')
                 .set('Authorization', `Bearer ${mockNewHireToken}`)
@@ -145,7 +145,7 @@ describe('MBTI Endpoints (e2e)', () => {
                 .expect(HttpStatus.BAD_REQUEST);
         });
 
-        it.skip('should successfully update MBTI for NEW_HIRE', async () => {
+        it.skip('NEW_HIREのMBTIを正常に更新できるべき', async () => {
             const response = await request(app.getHttpServer())
                 .put('/users/mbti')
                 .set('Authorization', `Bearer ${mockNewHireToken}`)
@@ -159,7 +159,7 @@ describe('MBTI Endpoints (e2e)', () => {
             expect(mbti).toBe('ENFP');
         });
 
-        it.skip('should allow multiple MBTI updates', async () => {
+        it.skip('MBTIの複数回更新を許可すべき', async () => {
             const mbtiTypes = ['INTJ', 'ENFP', 'ISTP', 'ESFJ'];
 
             for (const mbtiType of mbtiTypes) {
@@ -195,7 +195,7 @@ describe('MBTI Endpoints (e2e)', () => {
             'ESFP',
         ];
 
-        it.skip('should accept all 16 valid MBTI types', async () => {
+        it.skip('全16種類の有効なMBTIタイプを受け入れるべき', async () => {
             for (const mbtiType of validMbtiTypes) {
                 const response = await request(app.getHttpServer())
                     .put('/users/mbti')
@@ -217,7 +217,7 @@ describe('MBTI Endpoints (e2e)', () => {
             'INTZ',
         ];
 
-        it.skip('should reject invalid MBTI types', async () => {
+        it.skip('無効なMBTIタイプを拒否すべき', async () => {
             for (const invalidType of invalidMbtiTypes) {
                 await request(app.getHttpServer())
                     .put('/users/mbti')
@@ -229,7 +229,7 @@ describe('MBTI Endpoints (e2e)', () => {
     });
 
     describe('Integration with UserService', () => {
-        it('should directly test UserService methods', async () => {
+        it('UserServiceのメソッドを直接テストできるべき', async () => {
             // Test getUserMbti
             const initialMbti = await userService.getUserMbti('550e8400-e29b-41d4-a716-446655440001');
             expect(initialMbti).toBeNull();
@@ -247,7 +247,7 @@ describe('MBTI Endpoints (e2e)', () => {
             expect(finalMbti).toBe('ENFP');
         });
 
-        it('should throw error for non-existent user', async () => {
+        it('存在しないユーザーの場合、エラーを投げるべき', async () => {
             await expect(
                 userService.getUserMbti('550e8400-e29b-41d4-a716-446655440003'),
             ).rejects.toThrow('User not found');
