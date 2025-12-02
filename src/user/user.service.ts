@@ -1,5 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { User } from './user.types';
+import type { UserProps } from './user.types';
+import type { MbtiType } from './mbti.types';
 import type { UserPort } from './user.port';
 import type { SupabaseAdminClient } from '../supabase/adminClient';
 
@@ -8,14 +10,14 @@ export class UserService implements UserPort {
   constructor(
     @Inject('SUPABASE_ADMIN_CLIENT')
     private readonly supabase: SupabaseAdminClient,
-  ) {}
+  ) { }
 
   async getUsers(): Promise<User[]> {
     const { data, error } = await this.supabase.from('user').select();
     if (error || !data) {
       throw error ?? new Error('Failed to fetch users.');
     }
-    return data as unknown as User[];
+    return data.map((row) => User.create(row as unknown as UserProps));
   }
 
   async findUserById(userId: string): Promise<User | undefined> {
@@ -27,7 +29,7 @@ export class UserService implements UserPort {
     if (error) {
       throw error;
     }
-    return (data as unknown as User) ?? undefined;
+    return data ? User.create(data as unknown as UserProps) : undefined;
   }
 
   async findUserNameById(userId: string): Promise<string | undefined> {
@@ -41,8 +43,9 @@ export class UserService implements UserPort {
       role: user.role,
       display_name: user.display_name || user.email || user.user_id,
       email: user.email,
-      created_at: user.created_at ?? new Date().toISOString(),
-      disabled_at: user.disabled_at ?? null,
+      created_at: (user.created_at ?? new Date()).toISOString(),
+      disabled_at: user.disabled_at ? user.disabled_at.toISOString() : null,
+      mbti: user.mbti ?? null,
     };
     const { error } = await this.supabase
       .from('user')
@@ -50,5 +53,25 @@ export class UserService implements UserPort {
     if (error) {
       throw error;
     }
+  }
+
+  async updateUserMbti(userId: string, mbti: MbtiType): Promise<void> {
+    const user = await this.findUserById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+    const updatedUser = User.create({
+      ...user,
+      mbti,
+    });
+    await this.upsertUser(updatedUser);
+  }
+
+  async getUserMbti(userId: string): Promise<MbtiType | null> {
+    const user = await this.findUserById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+    return user.mbti;
   }
 }
