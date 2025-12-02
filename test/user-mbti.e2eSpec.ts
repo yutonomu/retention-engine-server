@@ -152,9 +152,7 @@ describe('MBTI Endpoints (e2e)', () => {
                 .send({ mbti: 'ENFP' })
                 .expect(HttpStatus.OK);
 
-            expect(response.body).toEqual({
-                message: 'MBTI updated successfully',
-            });
+            expect(response.body).toEqual({});
 
             // Verify the update
             const mbti = await userService.getUserMbti('550e8400-e29b-41d4-a716-446655440001');
@@ -205,7 +203,7 @@ describe('MBTI Endpoints (e2e)', () => {
                     .send({ mbti: mbtiType })
                     .expect(HttpStatus.OK);
 
-                expect(response.body.message).toBe('MBTI updated successfully');
+                expect(response.body).toEqual({});
             }
         });
 

@@ -55,7 +55,7 @@ export class UserController {
   async updateMbti(
     @Request() req: { user?: JwtPayload; body: { userId?: string } },
     @Body() body: unknown,
-  ): Promise<{ message: string }> {
+  ): Promise<void> {
     // 認証が無効な場合、リクエストボディからuserIdを取得できるようにフォールバック
     const userId = req.user?.sub ?? (body as { userId?: string }).userId;
     // const userRole = req.user?.role; // 認証無効時はロールチェックもスキップ
@@ -80,7 +80,6 @@ export class UserController {
 
     try {
       await this.userService.updateUserMbti(userId, validatedData.mbti);
-      return { message: 'MBTI updated successfully' };
     } catch (error) {
       if ((error as Error).message === 'User not found') {
         throw new HttpException('User not found', HttpStatus.NOT_FOUND);

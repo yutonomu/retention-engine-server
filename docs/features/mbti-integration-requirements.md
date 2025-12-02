@@ -39,9 +39,7 @@
 #### レスポンス
 - **成功 (HTTP 200)**
   ```json
-  {
-    "message": "MBTI updated successfully"
-  }
+  {}
   ```
   - 成功後の値確認は `GET /user/mbti` で取得する。
 
