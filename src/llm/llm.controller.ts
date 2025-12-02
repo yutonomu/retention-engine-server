@@ -17,9 +17,11 @@ interface UploadDocumentRequestBody {
 
 @Controller('llm')
 export class LlmController {
+  // TODO: 認証ガード(@UseGuards(JwtAuthGuard))が未実装です。
+  // 不正利用を防ぐため、認証を追加してください。
   private readonly logger = new Logger(LlmController.name);
 
-  constructor(private readonly llmService: LlmService) {}
+  constructor(private readonly llmService: LlmService) { }
 
   @UsePipes(new ZodValidationPipe(llmGenerateRequestSchema))
   @Post('generate')
