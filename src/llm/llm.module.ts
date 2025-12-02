@@ -6,9 +6,11 @@ import { GeminiFileSearchAssistantService } from './external/geminiFileSearchAss
 import { FileSearchAssistant } from './external/fileSearchAssistant';
 import { MessageModule } from '../message/message.module';
 import { GeminiTextService } from './external/geminiTextService';
+import { UserModule } from '../user/user.module';
+import { ConversationModule } from '../conversation/conversation.module';
 
 @Module({
-  imports: [MessageModule],
+  imports: [MessageModule, UserModule, ConversationModule],
   controllers: [LlmController],
   providers: [
     LlmService,
@@ -21,4 +23,4 @@ import { GeminiTextService } from './external/geminiTextService';
   ],
   exports: [LlmService, GeminiTextService],
 })
-export class LlmModule {}
+export class LlmModule { }
