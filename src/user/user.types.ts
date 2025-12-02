@@ -1,5 +1,6 @@
 export type UserRole = 'NEW_HIRE' | 'MENTOR';
 import { MbtiType, VALID_MBTI_TYPES } from './mbti.types';
+import type { PersonalityPresetId } from '../personality-preset/personalityPreset.types';
 export type { MbtiType };
 export { VALID_MBTI_TYPES };
 
@@ -13,6 +14,7 @@ export interface UserProps {
   created_at: Date | string;
   disabled_at?: Date | string | null;
   mbti?: MbtiType | null;
+  personalityPresetId?: PersonalityPresetId | null;
 }
 
 export class User {
@@ -23,6 +25,7 @@ export class User {
   readonly created_at: Date;
   readonly disabled_at: Date | null;
   readonly mbti: MbtiType | null;
+  readonly personalityPresetId: PersonalityPresetId | null;
 
   constructor(raw: UserProps) {
     const userId = raw.user_id?.trim();
@@ -54,6 +57,7 @@ export class User {
     this.created_at = createdAt;
     this.disabled_at = disabledAt;
     this.mbti = mbti;
+    this.personalityPresetId = raw.personalityPresetId ?? null;
   }
 
   static create(raw: UserProps): User {

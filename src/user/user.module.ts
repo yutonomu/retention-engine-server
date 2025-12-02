@@ -3,9 +3,10 @@ import { UserService } from './user.service';
 import { UserController } from './user.controller';
 import { USER_PORT } from './user.port';
 import { AuthModule } from '../auth/auth.module';
+import { PersonalityPresetModule } from '../personality-preset/personalityPreset.module';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, PersonalityPresetModule],
   providers: [
     UserService,
     {

@@ -15,7 +15,13 @@ import {
   type UpdateMbtiDto,
 } from './dto/updateMbti.dto';
 import type { GetUserMbtiResponseDto } from './dto/getUserMbtiResponse.dto';
+import {
+  UpdatePersonalityPresetSchema,
+  type UpdatePersonalityPresetDto,
+} from './dto/updatePersonalityPreset.dto';
+import type { GetPersonalityPresetResponseDto } from './dto/getPersonalityPresetResponse.dto';
 import type { JwtPayload } from '../auth/auth.types';
+import { toPersonalityPresetId } from '../personality-preset/personalityPreset.types';
 
 
 
@@ -24,13 +30,11 @@ export class UserController {
   constructor(private readonly userService: UserService) { }
 
   @Get('mbti')
-  // TODO: 認証を一時的に無効化しています。本番環境投入前に必ず @UseGuards(JwtAuthGuard) を戻してください。
-  // @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard)
   async getMbti(
-    @Request() req: { user?: JwtPayload; query: { userId?: string } },
+    @Request() req: { user: JwtPayload },
   ): Promise<GetUserMbtiResponseDto> {
-    // 認証が無効な場合、クエリパラメータからuserIdを取得できるようにフォールバック
-    const userId = req.user?.sub ?? req.query.userId;
+    const userId = req.user.sub;
     if (!userId) {
       throw new HttpException('Unauthorized: userId is required', HttpStatus.UNAUTHORIZED);
     }
@@ -50,19 +54,16 @@ export class UserController {
   }
 
   @Put('mbti')
-  // TODO: 認証を一時的に無効化しています。本番環境投入前に必ず @UseGuards(JwtAuthGuard) を戻してください。
-  // @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard)
   async updateMbti(
-    @Request() req: { user?: JwtPayload; body: { userId?: string } },
+    @Request() req: { user: JwtPayload },
     @Body() body: unknown,
   ): Promise<void> {
-    // 認証が無効な場合、リクエストボディからuserIdを取得できるようにフォールバック
-    const userId = req.user?.sub ?? (body as { userId?: string }).userId;
-    // const userRole = req.user?.role; // 認証無効時はロールチェックもスキップ
-
+    const userId = req.user.sub;
     if (!userId) {
       throw new HttpException('Unauthorized: userId is required', HttpStatus.UNAUTHORIZED);
     }
+    // const userRole = req.user.role; 
 
     // if (userRole !== 'NEW_HIRE') {
     //   throw new HttpException('Forbidden', HttpStatus.FORBIDDEN);
@@ -86,6 +87,71 @@ export class UserController {
       }
       throw new HttpException(
         'Failed to update MBTI.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Get('personality-preset')
+  @UseGuards(JwtAuthGuard)
+  async getUserPersonalityPreset(
+    @Request() req: { user: JwtPayload },
+  ): Promise<GetPersonalityPresetResponseDto> {
+    const userId = req.user.sub;
+    if (!userId) {
+      throw new HttpException('Unauthorized: userId is required', HttpStatus.UNAUTHORIZED);
+    }
+
+    try {
+      const presetId = await this.userService.getUserPersonalityPreset(userId);
+      return { presetId };
+    } catch (error) {
+      if ((error as Error).message === 'User not found') {
+        throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+      }
+      throw new HttpException(
+        'Failed to fetch personality preset.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Put('personality-preset')
+  @UseGuards(JwtAuthGuard)
+  async updateUserPersonalityPreset(
+    @Request() req: { user: JwtPayload },
+    @Body() body: unknown,
+  ): Promise<void> {
+    const userId = req.user.sub;
+    if (!userId) {
+      throw new HttpException('Unauthorized: userId is required', HttpStatus.UNAUTHORIZED);
+    }
+
+    let validatedData: UpdatePersonalityPresetDto;
+    try {
+      validatedData = UpdatePersonalityPresetSchema.parse(body);
+    } catch (error) {
+      throw new HttpException(
+        'Invalid preset ID.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    try {
+      // string | null を PersonalityPresetId | null に変換
+      const presetId = validatedData.presetId !== null
+        ? toPersonalityPresetId(validatedData.presetId)
+        : null;
+      await this.userService.updateUserPersonalityPreset(userId, presetId);
+    } catch (error) {
+      if ((error as Error).message === 'User not found') {
+        throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+      }
+      if ((error as Error).message === 'Preset not found') {
+        throw new HttpException('Preset not found', HttpStatus.BAD_REQUEST);
+      }
+      throw new HttpException(
+        'Failed to update personality preset.',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }

@@ -10,6 +10,7 @@ import { UserModule } from './user/user.module';
 import { MessageModule } from './message/message.module';
 import { SupabaseModule } from './supabase/supabase.module';
 import { AuthModule } from './auth/auth.module';
+import { PersonalityPresetModule } from './personality-preset/personalityPreset.module';
 
 @Module({
   imports: [
@@ -22,8 +23,9 @@ import { AuthModule } from './auth/auth.module';
     ConversationModule,
     UserModule,
     MessageModule,
+    PersonalityPresetModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }

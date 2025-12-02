@@ -3,6 +3,7 @@ import { UserService } from './user.service';
 import { SupabaseAdminClient } from '../supabase/adminClient';
 import { User } from './user.types';
 import type { MbtiType } from './mbti.types';
+import { PersonalityPresetService } from '../personality-preset/personalityPreset.service';
 
 describe('UserService MBTI機能', () => {
     let service: UserService;
@@ -12,6 +13,10 @@ describe('UserService MBTI機能', () => {
         eq: jest.Mock;
         maybeSingle: jest.Mock;
         upsert: jest.Mock;
+    };
+    let mockPersonalityPresetService: {
+        getAll: jest.Mock;
+        findById: jest.Mock;
     };
 
     const mockUser = {
@@ -34,12 +39,22 @@ describe('UserService MBTI機能', () => {
             upsert: jest.fn(),
         };
 
+        // Create mock PersonalityPresetService
+        mockPersonalityPresetService = {
+            getAll: jest.fn(),
+            findById: jest.fn(),
+        };
+
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 UserService,
                 {
                     provide: 'SUPABASE_ADMIN_CLIENT',
                     useValue: mockSupabase,
+                },
+                {
+                    provide: PersonalityPresetService,
+                    useValue: mockPersonalityPresetService,
                 },
             ],
         }).compile();
