@@ -14,7 +14,7 @@
 
 ## 1. API エンドポイント
 
-### 1.1 利用可能なプリセット ID 一覧取得
+### 1.1 利用可能なプリセット一覧取得
 
 | 項目 | 内容 |
 |------|------|
@@ -32,24 +32,20 @@ curl -X GET https://api.example.com/personality-presets \
 #### レスポンス例
 ```json
 {
-  "presetIds": [
-    "default_assistant",
-    "kind_mentor",
-    "strict_reviewer",
-    "brainstorm_buddy",
-    "pm_view",
-    "beginner_teacher",
-    "evidence_analyst",
-    "ultra_concise",
-    "kind_senpai_mentor",
-    "practical_coach",
-    "friendly_peer",
-    "company_concierge",
-    "pm_style_mentor",
-    "quiz_teacher",
-    "role_model_senior",
-    "kawaii_maid_helper",
-    "cool_answer_mentor"
+  "presets": [
+    {
+      "id": "default_assistant",
+      "displayName": "標準アシスタント"
+    },
+    {
+      "id": "kind_mentor",
+      "displayName": "やさしいメンター"
+    },
+    {
+      "id": "strict_reviewer",
+      "displayName": "厳しめレビューア"
+    }
+    // ... 全17個
   ]
 }
 ```
@@ -114,9 +110,11 @@ const response = await fetch('/users/personality-preset', {
   })
 });
 
-const result = await response.json();
-// { "message": "Personality preset updated successfully" }
+if (response.ok) {
+  // 成功 (HTTP 200)
+}
 ```
+
 
 #### リクエストボディ
 ```json
@@ -143,81 +141,22 @@ const result = await response.json();
 
 ## 2. フロントエンド実装ガイド
 
-### 2.1 プリセット ID → 表示名の変換マップ
+### 2.1 推奨実装パターン
 
-フロントエンド側で以下のマッピングを実装してください。
+APIから取得した`id`と`displayName`をそのまま使用してください。フロントエンドでのマッピング定義は不要です。
+
+**オプション: 説明文をフロントエンドで管理する場合**
+
+APIは`id`と`displayName`のみ返すため、詳細な説明文が必要な場合のみ、フロントエンド側で管理してください。
 
 ```typescript
-// src/constants/personalityPresets.ts
-
-export const PERSONALITY_PRESET_LABELS: Record<string, string> = {
-  // 汎用プリセット
-  default_assistant: '標準アシスタント',
-  kind_mentor: 'やさしいメンター',
-  strict_reviewer: '厳しめレビューア',
-  brainstorm_buddy: 'アイデア出しパートナー',
-  pm_view: 'プロダクトマネージャー視点',
-  beginner_teacher: 'はじめて先生',
-  evidence_analyst: 'データ重視アナリスト',
-  ultra_concise: '一言マスター',
-  
-  // 新人教育特化プリセット
-  kind_senpai_mentor: 'やさしい先輩メンター',
-  practical_coach: 'ちょい厳しめ実務コーチ',
-  friendly_peer: '同期ポジの相談相手',
-  company_concierge: '社内なんでも案内係',
-  pm_style_mentor: 'PM視点の先輩',
-  quiz_teacher: 'クイズ先生',
-  role_model_senior: 'ロールモデル先輩',
-  
-  // 特殊プリセット
-  kawaii_maid_helper: 'お世話好きアシスタント',
-  cool_answer_mentor: 'クールに決める先輩',
-};
+// src/constants/personalityPresets.ts (オプション)
 
 export const PERSONALITY_PRESET_DESCRIPTIONS: Record<string, string> = {
   default_assistant: '落ち着いた丁寧な口調で、質問に対してバランスよく回答する標準モード。',
   kind_mentor: '初心者や不慣れな人向けに、できるだけ噛み砕いて説明し、背中を押してくれるメンター。',
   strict_reviewer: 'アウトプットに対して率直に改善点を指摘するレビュー担当。甘やかさずに質を上げたいとき用。',
-  brainstorm_buddy: 'アイデアを広げたいときに、一緒に発想してくれるモード。発散思考寄り。',
-  pm_view: 'ユーザー価値・ビジネスインパクト・優先度の観点からコメントするモード。',
-  beginner_teacher: '対象分野がまったく初めての人向けに、小学生〜高校生レベルでもわかる説明を心がけるモード。',
-  evidence_analyst: '結論よりも根拠・前提・条件を丁寧に整理してくれるモード。',
-  ultra_concise: 'とにかく短く結論だけ知りたいときのモード。',
-  kind_senpai_mentor: '1〜2年目の面倒見がいい先輩のイメージ。社内用語や制度を、背景も含めて優しく教えてくれる。',
-  practical_coach: '頼れるけど少しストイックな先輩。理解度を確認しながら、実務レベルまで落とし込むコーチング役。',
-  friendly_peer: '同じタイミングで入社した同期のようなキャラ。『自分も最初そこ分からなかった』というスタンスで寄り添う。',
-  company_concierge: '人事・総務に詳しい案内係のイメージ。福利厚生、申請フロー、相談窓口などを整理して教える。',
-  pm_style_mentor: '少し先のキャリアの先輩。タスクや知識が、ユーザー価値やビジネスにどう繋がるかを解説してくれる。',
-  quiz_teacher: '説明よりも『理解しているか』を重視するモード。短いクイズや○×問題で知識定着を助ける。',
-  role_model_senior: '活躍している先輩社員をモデルにしたキャラ。実務上の工夫や失敗談を交えながら教えてくれる。',
-  kawaii_maid_helper: 'メイドさん風の、気配り上手な新人専属アシスタント。分からないことや不安を、やわらかい雰囲気でサポートしてくれる。',
-  cool_answer_mentor: '結論ファーストで、無駄を削ぎ落としたクールな回答をしてくれる先輩。意思決定や優先度づけで迷ったときに頼れる。',
-};
-
-// カテゴリ分類
-export const PRESET_CATEGORIES = {
-  general: [
-    'default_assistant',
-    'kind_mentor',
-    'strict_reviewer',
-    'brainstorm_buddy',
-    'pm_view',
-    'beginner_teacher',
-    'evidence_analyst',
-    'ultra_concise',
-  ],
-  onboarding: [
-    'kind_senpai_mentor',
-    'practical_coach',
-    'friendly_peer',
-    'company_concierge',
-    'pm_style_mentor',
-    'quiz_teacher',
-    'role_model_senior',
-    'kawaii_maid_helper',
-    'cool_answer_mentor',
-  ],
+  // ... 必要に応じて他のプリセットも
 };
 ```
 
@@ -228,14 +167,15 @@ export const PRESET_CATEGORIES = {
 ```typescript
 // src/components/PersonalityPresetSelector.tsx
 import { useState, useEffect } from 'react';
-import { 
-  PERSONALITY_PRESET_LABELS, 
-  PERSONALITY_PRESET_DESCRIPTIONS 
-} from '@/constants/personalityPresets';
+
+type Preset = {
+  id: string;
+  displayName: string;
+};
 
 export function PersonalityPresetSelector() {
-  const [presetIds, setPresetIds] = useState<string[]>([]);
-  const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
+  const [presets, setPresets] = useState<Preset[]>([]);
+  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   // 初期化: プリセット一覧と現在の設定を取得
@@ -243,13 +183,13 @@ export function PersonalityPresetSelector() {
     async function initialize() {
       // 1. プリセット一覧取得
       const presetsRes = await fetch('/personality-presets');
-      const { presetIds } = await presetsRes.json();
-      setPresetIds(presetIds);
+      const { presets } = await presetsRes.json();
+      setPresets(presets);
 
       // 2. 現在の設定取得
       const currentRes = await fetch('/users/personality-preset');
       const { presetId } = await currentRes.json();
-      setSelectedPreset(presetId);
+      setSelectedPresetId(presetId);
     }
     initialize();
   }, []);
@@ -265,8 +205,7 @@ export function PersonalityPresetSelector() {
       });
 
       if (response.ok) {
-        setSelectedPreset(presetId);
-        // 成功メッセージ表示
+        setSelectedPresetId(presetId);
         alert('性格プリセットを変更しました');
       } else {
         const error = await response.json();
@@ -284,15 +223,16 @@ export function PersonalityPresetSelector() {
     <div className="preset-selector">
       <h2>AI の性格を選択</h2>
       <div className="preset-grid">
-        {presetIds.map((presetId) => (
+        {presets.map((preset) => (
           <button
-            key={presetId}
-            className={selectedPreset === presetId ? 'selected' : ''}
-            onClick={() => handleSelectPreset(presetId)}
+            key={preset.id}
+            className={selectedPresetId === preset.id ? 'selected' : ''}
+            onClick={() => handleSelectPreset(preset.id)}
             disabled={loading}
           >
-            <h3>{PERSONALITY_PRESET_LABELS[presetId] || presetId}</h3>
-            <p>{PERSONALITY_PRESET_DESCRIPTIONS[presetId]}</p>
+            <h3>{preset.displayName}</h3>
+            {/* オプション: 説明文を表示する場合 */}
+            {/* <p>{PERSONALITY_PRESET_DESCRIPTIONS[preset.id]}</p> */}
           </button>
         ))}
       </div>
@@ -308,23 +248,33 @@ export function PersonalityPresetSelector() {
 ```typescript
 // src/components/ChatHeader.tsx
 import { useEffect, useState } from 'react';
-import { PERSONALITY_PRESET_LABELS } from '@/constants/personalityPresets';
+
+type Preset = {
+  id: string;
+  displayName: string;
+};
 
 export function ChatHeader() {
-  const [currentPreset, setCurrentPreset] = useState<string | null>(null);
+  const [presets, setPresets] = useState<Preset[]>([]);
+  const [currentPresetId, setCurrentPresetId] = useState<string | null>(null);
 
   useEffect(() => {
-    async function fetchCurrentPreset() {
-      const response = await fetch('/users/personality-preset');
-      const { presetId } = await response.json();
-      setCurrentPreset(presetId);
+    async function fetchData() {
+      // プリセット一覧取得
+      const presetsRes = await fetch('/personality-presets');
+      const { presets } = await presetsRes.json();
+      setPresets(presets);
+
+      // 現在の設定取得
+      const currentRes = await fetch('/users/personality-preset');
+      const { presetId } = await currentRes.json();
+      setCurrentPresetId(presetId);
     }
-    fetchCurrentPreset();
+    fetchData();
   }, []);
 
-  const displayName = currentPreset 
-    ? PERSONALITY_PRESET_LABELS[currentPreset] 
-    : '標準アシスタント';
+  const currentPreset = presets.find(p => p.id === currentPresetId);
+  const displayName = currentPreset?.displayName || '標準アシスタント';
 
   return (
     <div className="chat-header">
@@ -341,11 +291,11 @@ export function ChatHeader() {
 
 ## 3. 注意事項
 
-### 3.1 ID と表示名の同期
+### 3.1 表示名の取得
 
-- **バックエンドは ID のみを扱います**
-- **フロントエンドで ID → 表示名の変換を必ず実装してください**
-- 新しいプリセットが追加された場合は、フロントエンドのマッピングも更新が必要です
+- **APIが`displayName`を提供します**
+- フロントエンドは API から取得した `displayName` をそのまま使用してください
+- マッピング定義は不要ですが、説明文（`description`）が必要な場合のみフロントエンドで管理してください
 
 ### 3.2 デフォルト値の扱い
 
@@ -368,14 +318,14 @@ export function ChatHeader() {
 
 フロントエンド実装時に以下を確認してください:
 
-- [ ] `PERSONALITY_PRESET_LABELS` マッピングを実装
-- [ ] `PERSONALITY_PRESET_DESCRIPTIONS` マッピングを実装
+- [ ] APIから`presets`配列（`id`と`displayName`）を取得
 - [ ] プリセット選択 UI を実装
-- [ ] 現在のプリセット表示を実装
+- [ ] 現在のプリセット表示を実装（APIから取得した`displayName`を使用）
 - [ ] プリセット変更後の成功/失敗メッセージ表示
 - [ ] `NEW_HIRE` ロールのみが変更可能な制御を実装
 - [ ] デフォルト値 (`null` → `default_assistant`) の処理を実装
 - [ ] 不明な ID への対応（フォールバック処理）
+- [ ] (オプション) 詳細説明が必要な場合のみ`PERSONALITY_PRESET_DESCRIPTIONS`を実装
 
 ---
 

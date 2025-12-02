@@ -77,40 +77,38 @@ interface UserPersonalityPreference {
 
 ## 5. エンドポイント仕様
 
-### 5.1 利用可能なプリセットID一覧取得
+### 2.1 プリセット一覧取得 API
 
-| Method | Path | 概要 |
-| --- | --- | --- |
-| `GET` | `/personality-presets` | 利用可能な全プリセットIDの一覧を取得する |
+| Method | Endpoint | Description | Auth | Role |
+| :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/personality-presets` | 利用可能なプリセット一覧（ID + 表示名）を取得 | Required | All |
 
-#### リクエスト
-- **ヘッダー**: 認証ヘッダー or Cookie
-- **Body**: なし
+#### `GET /personality-presets`
 
-#### レスポンス
-- **成功 (HTTP 200)**
-  ```json
-  {
-    "presetIds": [
-      "default_assistant",
-      "kind_mentor",
-      "strict_reviewer",
-      "brainstorm_buddy",
-      "pm_view",
-      "beginner_teacher",
-      "evidence_analyst",
-      "ultra_concise",
-      "kind_senpai_mentor",
-      "practical_coach",
-      "friendly_peer",
-      "company_concierge",
-      "pm_style_mentor",
-      "quiz_teacher",
-      "role_model_senior",
-      "kawaii_maid_helper",
-      "cool_answer_mentor"
-    ]
-  }
+利用可能なプリセットのIDと表示名を取得します。
+
+**Response:**
+```json
+{
+  "presets": [
+    {
+      "id": "default_assistant",
+      "displayName": "標準アシスタント"
+    },
+    {
+      "id": "kind_mentor",
+      "displayName": "やさしいメンター"
+    },
+    {
+      "id": "strict_reviewer",
+      "displayName": "厳しめレビューア"
+    }
+    // ... 全17個のプリセット
+  ]
+}
+```
+
+**Note:** フロントエンドはこのAPIから取得した`displayName`を直接使用して、ユーザーに表示してください。
   ```
   ※ フロントエンドはIDからDisplayNameへの変換を自前で行う
   ※ プリセット定義の詳細（displayName, description, systemPromptCore等）はサーバー側のJSONファイルで管理
@@ -189,11 +187,8 @@ interface UserPersonalityPreference {
 ```
 
 **Response:**
-```json
-{
-  "message": "Personality preset updated successfully"
-}
-```
+HTTP 200 OK
+
 
 - **エラー**
   | ステータス | 条件 | 例 |
