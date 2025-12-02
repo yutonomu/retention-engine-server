@@ -15,6 +15,7 @@ import { USER_PORT } from '../user/user.port';
 import type { UserPort } from '../user/user.port';
 import { MENTOR_ASSIGNMENT_PORT } from '../mentor-assignment/mentor-assignment.port';
 import type { MentorAssignmentPort } from '../mentor-assignment/mentor-assignment.port';
+import { User } from '../user/user.types';
 
 @Injectable()
 export class ConversationService {
@@ -25,7 +26,7 @@ export class ConversationService {
     private readonly userRepository: UserPort,
     @Inject(MENTOR_ASSIGNMENT_PORT)
     private readonly mentorAssignmentRepository: MentorAssignmentPort,
-  ) {}
+  ) { }
 
   async getConversationListByNewHire(
     userId: string,
@@ -68,28 +69,7 @@ export class ConversationService {
     if (!userId?.trim()) {
       throw new BadRequestException('userId is required');
     }
-    const user =
-      (await this.userRepository.findUserById(userId)) ??
-      (() => {
-        if (!role || role === 'NEW_HIRE') {
-          // upsert placeholder user
-          void this.userRepository.upsertUser({
-            user_id: userId,
-            role: 'NEW_HIRE',
-            display_name: displayName ?? email ?? userId,
-            email: email ?? '',
-            created_at: new Date(),
-          });
-          return {
-            user_id: userId,
-            role: 'NEW_HIRE' as const,
-            display_name: displayName ?? email ?? userId,
-            email: email ?? '',
-            created_at: new Date(),
-          };
-        }
-        return undefined;
-      })();
+    const user = await this.userRepository.findUserById(userId);
     if (!user) {
       throw new NotFoundException(`User ${userId} not found`);
     }
