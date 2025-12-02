@@ -37,8 +37,6 @@ interface PersonalityPreset {
   id: string;
   /** UI に表示する名前 */
   displayName: string;
-  /** カテゴリ (例: "general" | "onboarding") */
-  category: string;
   /** どんなキャラクターか・どんな時に使うか */
   description: string;
   /** 口調・話し方のスタイル（日本語で記述） */
@@ -49,69 +47,44 @@ interface PersonalityPreset {
   strictness: Strictness;
   /** ユーザーに質問・提案を投げかける積極性 */
   proactivity: Proactivity;
-  /** そのプリセットが特に重視する観点 */
-  focus: string[];
-  /** 絶対に守りたいルール（LLM 向けの制約文） */
-  constraints: string[];
   /** そのプリセット専用のコア system prompt 文 */
   systemPromptCore: string;
-  /** 作成日時 */
-  createdAt: Date;
-  /** 更新日時 */
-  updatedAt: Date;
 }
 ```
 
-### 4.2 UserPersonalityPreference 型定義
+## 4. エンドポイント仕様
 
-```typescript
-interface UserPersonalityPreference {
-  /** ユーザーID */
-  userId: string;
-  /** 選択中のプリセットID */
-  presetId: string;
-  /** 最終更新日時 */
-  updatedAt: Date;
-}
-```
+### 4.1 プリセット一覧取得エンドポイント
 
-## 5. エンドポイント仕様
+| Method | Path | 概要 |
+| --- | --- | --- |
+| `GET` | `/personality-presets` | 利用可能なプリセット一覧（ID + 表示名）を取得する |
 
-### 2.1 プリセット一覧取得 API
+#### リクエスト
+- **ヘッダー**: 認証ヘッダー or Cookie
+- **Body**: なし
 
-| Method | Endpoint | Description | Auth | Role |
-| :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/personality-presets` | 利用可能なプリセット一覧（ID + 表示名）を取得 | Required | All |
-
-#### `GET /personality-presets`
-
-利用可能なプリセットのIDと表示名を取得します。
-
-**Response:**
-```json
-{
-  "presets": [
-    {
-      "id": "default_assistant",
-      "displayName": "標準アシスタント"
-    },
-    {
-      "id": "kind_mentor",
-      "displayName": "やさしいメンター"
-    },
-    {
-      "id": "strict_reviewer",
-      "displayName": "厳しめレビューア"
-    }
-    // ... 全17個のプリセット
-  ]
-}
-```
-
-**Note:** フロントエンドはこのAPIから取得した`displayName`を直接使用して、ユーザーに表示してください。
+#### レスポンス
+- **成功 (HTTP 200)**
+  ```json
+  {
+    "presets": [
+      {
+        "id": "default_assistant",
+        "displayName": "標準アシスタント"
+      },
+      {
+        "id": "kind_mentor",
+        "displayName": "やさしいメンター"
+      },
+      {
+        "id": "strict_reviewer",
+        "displayName": "厳しめレビューア"
+      }
+      // ... 全17個のプリセット
+    ]
+  }
   ```
-  ※ フロントエンドはIDからDisplayNameへの変換を自前で行う
-  ※ プリセット定義の詳細（displayName, description, systemPromptCore等）はサーバー側のJSONファイルで管理
 
 - **エラー**
   | ステータス | 条件 | 例 |
@@ -119,7 +92,7 @@ interface UserPersonalityPreference {
   | 401 | 未ログイン / トークン無効 | `{ "error": "Unauthorized" }` |
   | 500 | プリセットデータ取得失敗 | `{ "error": "Failed to fetch presets." }` |
 
-### 5.2 特定プリセットの詳細取得（将来実装）
+### 4.2 プリセット詳細取得エンドポイント（将来実装）
 
 ※ このエンドポイントは現時点では実装せず、将来的にフロントエンドで詳細情報が必要になった場合に追加する。
 
@@ -133,10 +106,11 @@ interface UserPersonalityPreference {
 
 ---
 
-### 5.3 ユーザーのプリセット設定取得
+### 4.3 ユーザープリセット設定取得エンドポイント
+
 | Method | Path | 概要 |
 | --- | --- | --- |
-| `GET` | `/user/personality-preset` | 自分の現在の性格プリセット設定を取得する |
+| `GET` | `/users/personality-preset` | 自分の現在の性格プリセット設定を取得する |
 
 #### リクエスト
 - **ヘッダー**: 認証ヘッダー or Cookie
@@ -157,38 +131,35 @@ interface UserPersonalityPreference {
   ```
 
 - **エラー**
-### 2.2 ユーザープリセット設定 API
+  | ステータス | 条件 | 例 |
+  | --- | --- | --- |
+  | 401 | 未ログイン / トークン無効 | `{ "error": "Unauthorized" }` |
+  | 404 | ユーザーが存在しない | `{ "error": "User not found" }` |
+  | 500 | データベース取得失敗 | `{ "error": "Failed to fetch user preset." }` |
 
-| Method | Endpoint | Description | Auth | Role |
-| :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/users/personality-preset` | ユーザーの現在のプリセット設定を取得 | Required | All |
-| `PUT` | `/users/personality-preset` | ユーザーのプリセット設定を更新 | Required | `NEW_HIRE` |
+### 4.4 ユーザープリセット設定更新エンドポイント
 
-#### `GET /users/personality-preset`
+| Method | Path | 概要 |
+| --- | --- | --- |
+| `PUT` | `/users/personality-preset` | 自分の性格プリセット設定を登録または更新する (アップサート) |
 
-ユーザーが現在設定しているプリセットIDを取得します。
+- 既存値があれば上書き、未設定なら新規登録
 
-**Response:**
-```json
-{
-  "presetId": "kind_mentor" // or null
-}
-```
+#### リクエスト
+- **ヘッダー**: `Content-Type: application/json`, 認証ヘッダー or Cookie
+- **Body**
+  ```json
+  {
+    "presetId": "kind_mentor"
+  }
+  ```
+  - `presetId`: 存在する有効なプリセットIDまたは`null` (デフォルトに戻す)
 
-#### `PUT /users/personality-preset`
-
-ユーザーのプリセット設定を更新します。
-
-**Request Body:**
-```json
-{
-  "presetId": "kind_mentor" // or null to reset
-}
-```
-
-**Response:**
-HTTP 200 OK
-
+#### レスポンス
+- **成功 (HTTP 200)**
+  ```json
+  {}
+  ```
 
 - **エラー**
   | ステータス | 条件 | 例 |
@@ -199,64 +170,31 @@ HTTP 200 OK
   | 404 | プリセットが存在しない | `{ "error": "Preset not found" }` |
   | 500 | データベース更新失敗 | `{ "error": "Failed to update personality preset." }` |
 
-## 6. データベーススキーマ
+## 5. データベーススキーマ変更
 
-### 6.1 プリセット定義ファイル（JSONファイル）
-
-プリセットのマスターデータはデータベースではなく、JSONファイルで管理する。
-
-**ファイルパス**: `src/personality-preset/presets.json`
-
-```json
-[
-  {
-    "id": "default_assistant",
-    "displayName": "標準アシスタント",
-    "category": "general",
-    "description": "落ち着いた丁寧な口調で、質問に対してバランスよく回答する標準モード。",
-    "tone": "丁寧・ビジネス寄り",
-    "depth": "normal",
-    "strictness": "normal",
-    "proactivity": "normal",
-    "focus": ["事実ベースの回答", "わかりやすい要約"],
-    "constraints": [
-      "不明な点は『わからない』と明示する",
-      "RAG の参照元がある場合は、要点レベルで軽く触れる"
-    ],
-    "systemPromptCore": "落ち着いた標準的なビジネス口調で、過度にキャラを立てすぎず、事実ベースでバランスのよい回答を行ってください。結論→補足→必要に応じて次のステップ、の順で簡潔に説明してください。"
-  },
-  {
-    "id": "kind_mentor",
-    // ... 他のプリセット定義（計17個）
-  }
-]
-```
-
-- **管理方針**: JSONファイルとしてバージョン管理し、新規プリセット追加時はファイルを編集してデプロイ
-- **メリット**: データベーステーブル不要、シンプル、バージョン管理しやすい
-
-### 6.2 user テーブルへの追加カラム
+### user テーブルへの追加カラム
 
 ```sql
 ALTER TABLE "user" ADD COLUMN personality_preset_id VARCHAR(50) NULL;
 ```
 
 - **カラム名**: `personality_preset_id`
-- **型**: `VARCHAR(50)` (または `TEXT`)
+- **型**: `VARCHAR(50)` または `TEXT` (Supabaseの場合)
 - **制約**: NULL許可 (未設定のユーザーがいるため)
 - **初期値**: `NULL`
-- **注意**: プリセット定義はJSONファイルで管理するため、外部キー制約は設定しない。バリデーションはアプリケーション層で行う。
+- **プリセット定義の管理**: JSONファイル (`src/personality-preset/presets.json`) で管理
+- **バリデーション**: アプリケーション層でプリセットIDの存在チェックを行う
 
-## 7. LLM統合: プロンプトへのプリセット情報追加
+## 6. LLM統合: プロンプトへのプリセット情報追加
 
-### 7.1 処理フロー
+### 6.1 処理フロー
 1. ユーザーがチャットメッセージを送信
 2. LLMService の `generate()` メソッドで、ユーザーIDから性格プリセット設定を取得
 3. プリセットが設定されている場合、該当するプリセットの詳細情報を取得
 4. システムプロンプトにプリセット情報を組み込んだプロンプトを生成
 5. プリセットが未設定の場合、デフォルトプリセット(`default_assistant`)を使用
 
-### 7.2 システムプロンプトテンプレート
+### 6.2 システムプロンプトテンプレート
 
 ```typescript
 const SYSTEM_PROMPT_TEMPLATE = `
@@ -271,10 +209,6 @@ const SYSTEM_PROMPT_TEMPLATE = `
 - 回答の深さ: {{depth}}
 - 厳しさレベル: {{strictness}}
 - 積極性: {{proactivity}}
-- 重視する観点:
-{{focus を箇条書き展開}}
-- 制約:
-{{constraints を箇条書き展開}}
 
 プリセットごとの追加指示:
 {{systemPromptCore}}
@@ -284,7 +218,7 @@ const SYSTEM_PROMPT_TEMPLATE = `
 `.trim();
 ```
 
-### 7.3 プロンプト生成例
+### 6.3 プロンプト生成例
 
 ```typescript
 // LlmService内での実装イメージ
@@ -315,13 +249,11 @@ async generateSystemPrompt(userId: string): Promise<string> {
 }
 ```
 
-## 8. 実装の優先順位とフェーズ
+## 7. 実装の優先順位とフェーズ
 
-### Phase 0: データベーススキーマとマスターデータ準備
-1. `personality_preset` テーブル作成のマイグレーション作成
-2. 17個のプリセットデータをシードファイルとして準備
-3. `user` テーブルに `personality_preset_id` カラム追加
-4. マイグレーション実行とシードデータ投入
+### Phase 0: データベーススキーマとプリセット定義準備
+1. データベーススキーマ変更 (user テーブルに personality_preset_id カラム追加)
+2. `src/personality-preset/presets.json` ファイル作成（17個のプリセット定義）
 
 ### Phase 1: プリセット管理API (読み取り専用)
 1. PersonalityPreset エンティティ定義
@@ -361,7 +293,7 @@ async generateSystemPrompt(userId: string): Promise<string> {
 3. プリセット設定更新API呼び出し
 4. チャット画面での現在のプリセット表示 (オプション)
 
-## 9. 非機能要件
+## 8. 非機能要件
 
 - **パフォーマンス**: 
   - プリセットマスターデータはアプリケーション起動時にキャッシュ
@@ -376,7 +308,7 @@ async generateSystemPrompt(userId: string): Promise<string> {
   - プリセットが未設定のユーザーでも既存機能が正常に動作すること
   - デフォルトプリセットへのフォールバック処理を必ず実装
 
-## 10. テスト要件
+## 9. テスト要件
 
 ### ユニットテスト
 - PersonalityPresetService
@@ -396,7 +328,7 @@ async generateSystemPrompt(userId: string): Promise<string> {
 - ユーザープリセット設定取得フロー
 - プリセットを考慮したチャット応答生成
 
-## 11. 初期プリセット一覧
+## 10. 初期プリセット一覧
 
 システムには以下の17個のプリセットを初期データとして提供する:
 
@@ -425,7 +357,7 @@ async generateSystemPrompt(userId: string): Promise<string> {
 
 ※ 詳細な定義は元仕様書の第3章を参照
 
-## 12. 今後の拡張可能性
+## 11. 今後の拡張可能性
 
 - メンターがメンティーのプリセット設定を閲覧できる機能
 - ユーザーカスタマイズ可能なプリセット (パラメータ微調整)
@@ -435,7 +367,7 @@ async generateSystemPrompt(userId: string): Promise<string> {
 - 管理画面からの新規プリセット追加・編集機能
 - A/Bテストによるプリセット効果測定
 
-## 13. 成功指標
+## 12. 成功指標
 
 - **プリセット設定率**: アクティブユーザーの70%以上がデフォルト以外のプリセットを設定
 - **プリセット切り替え率**: ユーザーが複数のプリセットを試す率 (セッションあたり平均1.5回以上)

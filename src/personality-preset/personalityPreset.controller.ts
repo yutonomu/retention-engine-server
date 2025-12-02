@@ -1,0 +1,21 @@
+import { Controller, Get, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { PersonalityPresetService } from './personalityPreset.service';
+import { GetPresetsResponseDto } from './dto/getPresetsResponse.dto';
+
+@Controller('personality-presets')
+export class PersonalityPresetController {
+    constructor(private readonly presetService: PersonalityPresetService) { }
+
+    @Get()
+    // TODO: 認証ガードは後で有効化する
+    // @UseGuards(JwtAuthGuard)
+    async getAllPresets(): Promise<GetPresetsResponseDto> {
+        const allPresets = this.presetService.getAll();
+        const presets = allPresets.map(preset => ({
+            id: preset.id,
+            displayName: preset.displayName,
+        }));
+        return { presets };
+    }
+}
