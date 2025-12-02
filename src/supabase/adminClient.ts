@@ -30,7 +30,7 @@ type GenericUpdatableView = {
 type GenericView = GenericUpdatableView | GenericNonUpdatableView;
 
 type GenericFunction = {
-  Args: Record<string, unknown> | never;
+  Args: Record<string, unknown>;
   Returns: unknown;
   SetofOptions?: {
     isSetofReturn?: boolean;
