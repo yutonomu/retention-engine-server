@@ -7,6 +7,9 @@ import type { SupabaseAdminClient } from '../supabase/adminClient';
 
 @Injectable()
 export class UserService implements UserPort {
+  // TODO: UserServiceがUserPortを実装しているのは暫定的な構成です。
+  // 将来的には、UserService内でUserPort（抽象）を使用し、
+  // UserPortの実装（データアクセス層）は別のクラス（例: UserRepository）に分離する必要があります。
   constructor(
     @Inject('SUPABASE_ADMIN_CLIENT')
     private readonly supabase: SupabaseAdminClient,
