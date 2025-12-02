@@ -18,7 +18,9 @@ interface CreateMessageResponse {
 
 @Controller('messages')
 export class MessageController {
-  constructor(private readonly messageService: MessageService) {}
+  // TODO: 認証ガード(@UseGuards(JwtAuthGuard))が未実装です。
+  // 会話内容の漏洩を防ぐため、早急に認証を追加してください。
+  constructor(private readonly messageService: MessageService) { }
 
   @Get()
   async getMessages(

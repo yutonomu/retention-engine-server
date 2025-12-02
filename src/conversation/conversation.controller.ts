@@ -14,7 +14,10 @@ import type {
 
 @Controller('conversations')
 export class ConversationController {
-  constructor(private readonly conversationService: ConversationService) {}
+  // TODO: 認証ガード(@UseGuards(JwtAuthGuard))が未実装です。
+  // 早急に認証を追加し、userIdやmentorIdをリクエストボディ/クエリではなく、
+  // req.userから取得するように修正する必要があります。
+  constructor(private readonly conversationService: ConversationService) { }
 
   @Get('mentor')
   async getMentorConversationList(
