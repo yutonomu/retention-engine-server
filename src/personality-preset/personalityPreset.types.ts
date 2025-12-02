@@ -2,8 +2,21 @@ export type Depth = 'shallow' | 'normal' | 'normal_to_deep' | 'deep' | 'step_by_
 export type Strictness = 'low' | 'normal' | 'medium' | 'medium_to_high' | 'high';
 export type Proactivity = 'low' | 'normal' | 'high' | 'very_high';
 
+/**
+ * PersonalityPresetの一意識別子を表す型
+ * ブランド型として定義することで、通常のstring型と区別し、型安全性を向上させる
+ */
+export type PersonalityPresetId = string & { readonly __brand: 'PersonalityPresetId' };
+
+/**
+ * stringをPersonalityPresetIdに変換するヘルパー関数
+ */
+export const toPersonalityPresetId = (id: string): PersonalityPresetId => {
+    return id as PersonalityPresetId;
+};
+
 export interface PersonalityPresetProps {
-    id: string;
+    id: PersonalityPresetId;
     displayName: string;
     description: string;
     tone: string;
@@ -14,7 +27,7 @@ export interface PersonalityPresetProps {
 }
 
 export class PersonalityPreset {
-    readonly id: string;
+    readonly id: PersonalityPresetId;
     readonly displayName: string;
     readonly description: string;
     readonly tone: string;
@@ -44,7 +57,7 @@ export class PersonalityPreset {
      * @param validIds 有効なIDのリスト
      * @throws Error IDが無効な場合
      */
-    static validateId(id: string, validIds: string[]): void {
+    static validateId(id: PersonalityPresetId, validIds: PersonalityPresetId[]): void {
         if (!validIds.includes(id)) {
             throw new Error('Preset not found');
         }

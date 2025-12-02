@@ -2,7 +2,7 @@ import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
 import { PersonalityPresetRepository } from './personalityPreset.port';
-import { PersonalityPreset, PersonalityPresetProps } from '../personalityPreset.types';
+import { PersonalityPreset, type PersonalityPresetId, PersonalityPresetProps } from '../personalityPreset.types';
 
 @Injectable()
 export class JsonPersonalityPresetRepository implements PersonalityPresetRepository, OnModuleInit {
@@ -15,7 +15,7 @@ export class JsonPersonalityPresetRepository implements PersonalityPresetReposit
 
     private loadPresets() {
         try {
-            // プリセットJSONファイルのパス解決
+            //プリセットJSONファイルのパス解決
             // src/personality-preset/data/presets.json を想定
             const filePath = path.join(__dirname, '..', 'data', 'presets.json');
 
@@ -24,8 +24,12 @@ export class JsonPersonalityPresetRepository implements PersonalityPresetReposit
                 const srcPath = path.join(process.cwd(), 'src', 'personality-preset', 'data', 'presets.json');
                 if (fs.existsSync(srcPath)) {
                     const fileContent = fs.readFileSync(srcPath, 'utf-8');
-                    const rawPresets: PersonalityPresetProps[] = JSON.parse(fileContent);
-                    this.presets = rawPresets.map(raw => PersonalityPreset.create(raw));
+                    const rawPresets: (Omit<PersonalityPresetProps, 'id'> & { id: string })[] = JSON.parse(fileContent);
+                    // string型のidをPersonalityPresetId型に変換
+                    this.presets = rawPresets.map(raw => PersonalityPreset.create({
+                        ...raw,
+                        id: raw.id as PersonalityPresetId
+                    }));
                     this.logger.log(`Loaded ${this.presets.length} personality presets from ${srcPath}`);
                     return;
                 }
@@ -34,8 +38,12 @@ export class JsonPersonalityPresetRepository implements PersonalityPresetReposit
             }
 
             const fileContent = fs.readFileSync(filePath, 'utf-8');
-            const rawPresets: PersonalityPresetProps[] = JSON.parse(fileContent);
-            this.presets = rawPresets.map(raw => PersonalityPreset.create(raw));
+            const rawPresets: (Omit<PersonalityPresetProps, 'id'> & { id: string })[] = JSON.parse(fileContent);
+            // string型のidをPersonalityPresetId型に変換
+            this.presets = rawPresets.map(raw => PersonalityPreset.create({
+                ...raw,
+                id: raw.id as PersonalityPresetId
+            }));
             this.logger.log(`Loaded ${this.presets.length} personality presets from ${filePath}`);
         } catch (error) {
             this.logger.error('Failed to load personality presets', error);
@@ -47,7 +55,7 @@ export class JsonPersonalityPresetRepository implements PersonalityPresetReposit
         return [...this.presets];
     }
 
-    findById(id: string): PersonalityPreset | undefined {
+    findById(id: PersonalityPresetId): PersonalityPreset | undefined {
         return this.presets.find(p => p.id === id);
     }
 

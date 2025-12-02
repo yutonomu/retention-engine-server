@@ -1,8 +1,8 @@
-import { PersonalityPreset } from '../personalityPreset.types';
+import { PersonalityPreset, type PersonalityPresetId } from '../personalityPreset.types';
 
 export const PERSONALITY_PRESET_REPOSITORY = 'PERSONALITY_PRESET_REPOSITORY';
 
 export interface PersonalityPresetRepository {
     findAll(): PersonalityPreset[];
-    findById(id: string): PersonalityPreset | undefined;
+    findById(id: PersonalityPresetId): PersonalityPreset | undefined;
 }

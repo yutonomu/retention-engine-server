@@ -5,7 +5,7 @@ import { FileSearchAssistant } from './external/fileSearchAssistant';
 import { UserPort, USER_PORT } from '../user/user.port';
 import { ConversationPort, CONVERSATION_PORT } from '../conversation/conversation.port';
 import { PersonalityPresetService } from '../personality-preset/personalityPreset.service';
-import { PersonalityPreset } from '../personality-preset/personalityPreset.types';
+import { PersonalityPreset, toPersonalityPresetId } from '../personality-preset/personalityPreset.types';
 // Mock createUUID to avoid uuid import issues in Jest
 jest.mock('../common/uuid', () => ({
     createUUID: jest.fn(() => 'mock-uuid'),
@@ -22,7 +22,7 @@ describe('LlmService', () => {
     let mockUserService: any;
 
     const mockPreset: PersonalityPreset = {
-        id: 'test_preset',
+        id: toPersonalityPresetId('test_preset'),
         displayName: 'Test Preset',
         description: 'Test Description',
         tone: 'Test Tone',
@@ -55,7 +55,7 @@ describe('LlmService', () => {
             findById: jest.fn().mockReturnValue(mockPreset),
         };
         mockUserService = {
-            getUserPersonalityPreset: jest.fn().mockResolvedValue('test_preset'),
+            getUserPersonalityPreset: jest.fn().mockResolvedValue(toPersonalityPresetId('test_preset')),
         };
 
         // Mock UserPort to behave like UserService for the cast in LlmService

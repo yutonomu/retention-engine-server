@@ -15,7 +15,7 @@ import type { UUID } from '../common/uuid';
 import * as path from 'path';
 import { MBTI_COMMUNICATION_STYLES } from '../user/mbti.types';
 import { PersonalityPresetService } from '../personality-preset/personalityPreset.service';
-import { PersonalityPreset } from '../personality-preset/personalityPreset.types';
+import { PersonalityPreset, type PersonalityPresetId, toPersonalityPresetId } from '../personality-preset/personalityPreset.types';
 
 // FILE_SEARCH_INSTRUCTIONを定数として定義
 const FILE_SEARCH_INSTRUCTION = `
@@ -151,7 +151,7 @@ export class LlmService {
     // 一時的にanyにキャストして実装クラス（UserService）のメソッドにアクセスしています。
     // TODO: UserPortインターフェースを更新してgetUserPersonalityPresetを追加する
     const userService = this.userPort as any;
-    const presetId = await userService.getUserPersonalityPreset(userId) || 'default_assistant';
+    const presetId = await userService.getUserPersonalityPreset(userId) || toPersonalityPresetId('default_assistant');
 
     // 2. MBTI情報を取得
     const userMbti = await this.userPort.getUserMbti(userId);
@@ -171,7 +171,7 @@ export class LlmService {
 
     if (!targetPreset) {
       // フォールバック：デフォルトプリセット
-      const defaultPreset = this.personalityPresetService.findById('default_assistant');
+      const defaultPreset = this.personalityPresetService.findById(toPersonalityPresetId('default_assistant'));
       if (defaultPreset) {
         targetPreset = defaultPreset;
       }
