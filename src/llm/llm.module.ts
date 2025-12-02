@@ -9,8 +9,10 @@ import { GeminiTextService } from './external/geminiTextService';
 import { UserModule } from '../user/user.module';
 import { ConversationModule } from '../conversation/conversation.module';
 
+import { PersonalityPresetModule } from '../personality-preset/personalityPreset.module';
+
 @Module({
-  imports: [MessageModule, UserModule, ConversationModule],
+  imports: [MessageModule, UserModule, ConversationModule, PersonalityPresetModule],
   controllers: [LlmController],
   providers: [
     LlmService,
