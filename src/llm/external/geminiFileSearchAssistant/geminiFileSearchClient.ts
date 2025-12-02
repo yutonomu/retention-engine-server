@@ -84,10 +84,14 @@ export class GeminiFileSearchClient {
     await this.ensureStoresReady();
     const history = options.history ?? [];
 
+    const instruction = options.systemInstruction
+      ? `${FILE_SEARCH_INSTRUCTION.trim()}\n\n${options.systemInstruction}`
+      : FILE_SEARCH_INSTRUCTION.trim();
+
     const contents = [
       {
         role: 'user' as const,
-        parts: [{ text: FILE_SEARCH_INSTRUCTION.trim() }],
+        parts: [{ text: instruction }],
       },
       ...history.map((message) => ({
         role: mapUserRoleToRole(message.userRole),
@@ -485,8 +489,8 @@ export class GeminiFileSearchClient {
 
     const candidatesRaw =
       typeof response === 'object' &&
-      response !== null &&
-      Array.isArray((response as { candidates?: unknown }).candidates)
+        response !== null &&
+        Array.isArray((response as { candidates?: unknown }).candidates)
         ? (response as { candidates: unknown[] }).candidates
         : [];
 
@@ -522,7 +526,7 @@ export class GeminiFileSearchClient {
 
     const finishReason =
       candidatesRaw.length > 0 &&
-      typeof (candidatesRaw[0] as { finishReason?: unknown }).finishReason ===
+        typeof (candidatesRaw[0] as { finishReason?: unknown }).finishReason ===
         'string'
         ? (candidatesRaw[0] as { finishReason: string }).finishReason
         : 'unknown';

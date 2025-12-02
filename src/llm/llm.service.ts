@@ -1,6 +1,10 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import * as messagePort from '../message/message.port';
 import { MESSAGE_PORT } from '../message/message.port';
+import { USER_PORT } from '../user/user.port';
+import type { UserPort } from '../user/user.port';
+import { CONVERSATION_PORT } from '../conversation/conversation.port';
+import type { ConversationPort } from '../conversation/conversation.port';
 import {
   FileSearchAssistant,
   type FileDocument,
@@ -9,6 +13,7 @@ import type { Message } from '../Entity/Message';
 import { createUUID } from '../common/uuid';
 import type { UUID } from '../common/uuid';
 import * as path from 'path';
+import { MBTI_COMMUNICATION_STYLES } from '../user/mbti.types';
 
 export type LlmGenerateCommand = {
   prompt: string;
@@ -36,7 +41,11 @@ export class LlmService {
     private readonly messagePort: messagePort.MessagePort,
     @Inject(FileSearchAssistant)
     private readonly fileSearchAssistant: FileSearchAssistant,
-  ) {}
+    @Inject(USER_PORT)
+    private readonly userPort: UserPort,
+    @Inject(CONVERSATION_PORT)
+    private readonly conversationPort: ConversationPort,
+  ) { }
 
   async generate(command: LlmGenerateCommand): Promise<LlmGenerateResult> {
     this.logger.log(
@@ -53,6 +62,28 @@ export class LlmService {
       )}`,
     );
 
+    // Fetch MBTI information for the conversation owner
+    const conversation = await this.conversationPort.findById(
+      command.conversationId.toString(),
+    );
+    if (!conversation) {
+      throw new Error(`Conversation ${command.conversationId} not found`);
+    }
+    if (!conversation.owner_id) {
+      throw new Error(`Conversation ${command.conversationId} has no owner`);
+    }
+
+    let systemInstruction: string | undefined;
+    const userMbti = await this.userPort.getUserMbti(conversation.owner_id);
+
+    if (userMbti) {
+      const communicationStyle = MBTI_COMMUNICATION_STYLES[userMbti];
+      systemInstruction = `このユーザーのMBTIタイプは${userMbti}です。${communicationStyle}`;
+      this.logger.log(
+        `MBTI personalization applied: type=${userMbti} for userId=${conversation.owner_id}`,
+      );
+    }
+
     const userMessage: Message = {
       messageId: createUUID(),
       conversationId: command.conversationId,
@@ -68,6 +99,7 @@ export class LlmService {
         {
           conversationId: command.conversationId,
           history: [...(history as unknown as Message[]), userMessage],
+          systemInstruction,
         },
       );
     } catch (error) {

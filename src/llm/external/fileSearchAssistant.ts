@@ -4,6 +4,7 @@ import type { UUID } from '../../common/uuid';
 export type FileSearchAnswerOptions = {
   conversationId: UUID;
   history?: Message[];
+  systemInstruction?: string;
 };
 
 export type FileSearchAnswerResult = {
