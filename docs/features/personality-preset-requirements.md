@@ -159,35 +159,41 @@ interface UserPersonalityPreference {
   ```
 
 - **エラー**
-  | ステータス | 条件 | 例 |
-  | --- | --- | --- |
-  | 401 | 未ログイン / トークン無効 | `{ "error": "Unauthorized" }` |
-  | 404 | ユーザーが存在しない | `{ "error": "User not found" }` |
-  | 500 | データベース取得失敗 | `{ "error": "Failed to fetch user preset." }` |
+### 2.2 ユーザープリセット設定 API
 
-### 5.4 ユーザーのプリセット設定更新
+| Method | Endpoint | Description | Auth | Role |
+| :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/users/personality-preset` | ユーザーの現在のプリセット設定を取得 | Required | All |
+| `PUT` | `/users/personality-preset` | ユーザーのプリセット設定を更新 | Required | `NEW_HIRE` |
 
-| Method | Path | 概要 |
-| --- | --- | --- |
-| `PUT` | `/user/personality-preset` | 自分の性格プリセットを設定または更新する (アップサート) |
+#### `GET /users/personality-preset`
 
-#### リクエスト
-- **ヘッダー**: `Content-Type: application/json`, 認証ヘッダー or Cookie
-- **Body**
-  ```json
-  {
-    "presetId": "kind_mentor"
-  }
-  ```
-  - `presetId`: 存在する有効なプリセットIDまたは`null` (デフォルトに戻す)
+ユーザーが現在設定しているプリセットIDを取得します。
 
-#### レスポンス
-- **成功 (HTTP 200)**
-  ```json
-  {
-    "message": "Personality preset updated successfully"
-  }
-  ```
+**Response:**
+```json
+{
+  "presetId": "kind_mentor" // or null
+}
+```
+
+#### `PUT /users/personality-preset`
+
+ユーザーのプリセット設定を更新します。
+
+**Request Body:**
+```json
+{
+  "presetId": "kind_mentor" // or null to reset
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Personality preset updated successfully"
+}
+```
 
 - **エラー**
   | ステータス | 条件 | 例 |

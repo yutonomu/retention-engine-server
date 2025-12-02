@@ -61,13 +61,13 @@ curl -X GET https://api.example.com/personality-presets \
 | 項目 | 内容 |
 |------|------|
 | **Method** | `GET` |
-| **Path** | `/user/personality-preset` |
+| **Path** | `/users/personality-preset` |
 | **認証** | 必要（Cookie または Bearer Token） |
 | **ロール制限** | なし（ログイン済みユーザー全員） |
 
 #### リクエスト例
 ```typescript
-const response = await fetch('/user/personality-preset', {
+const response = await fetch('/users/personality-preset', {
   headers: {
     'Authorization': `Bearer ${token}`
   }
@@ -97,13 +97,13 @@ const data = await response.json();
 | 項目 | 内容 |
 |------|------|
 | **Method** | `PUT` |
-| **Path** | `/user/personality-preset` |
+| **Path** | `/users/personality-preset` |
 | **認証** | 必要（Cookie または Bearer Token） |
 | **ロール制限** | `NEW_HIRE` のみ |
 
 #### リクエスト例
 ```typescript
-const response = await fetch('/user/personality-preset', {
+const response = await fetch('/users/personality-preset', {
   method: 'PUT',
   headers: {
     'Content-Type': 'application/json',
@@ -247,7 +247,7 @@ export function PersonalityPresetSelector() {
       setPresetIds(presetIds);
 
       // 2. 現在の設定取得
-      const currentRes = await fetch('/user/personality-preset');
+      const currentRes = await fetch('/users/personality-preset');
       const { presetId } = await currentRes.json();
       setSelectedPreset(presetId);
     }
@@ -258,7 +258,7 @@ export function PersonalityPresetSelector() {
   const handleSelectPreset = async (presetId: string) => {
     setLoading(true);
     try {
-      const response = await fetch('/user/personality-preset', {
+      const response = await fetch('/users/personality-preset', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ presetId }),
@@ -315,7 +315,7 @@ export function ChatHeader() {
 
   useEffect(() => {
     async function fetchCurrentPreset() {
-      const response = await fetch('/user/personality-preset');
+      const response = await fetch('/users/personality-preset');
       const { presetId } = await response.json();
       setCurrentPreset(presetId);
     }
