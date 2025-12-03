@@ -45,6 +45,17 @@ docker compose run --rm server npm run test:e2e
   gcloud run deploy <SERVICE_NAME> --source . --region <REGION> --allow-unauthenticated --set-env-vars KEY=VALUE
   ```
 
+- **.env.run を使用する場合**:
+  `.env.run` ファイル（KEY=VALUE形式）に定義された環境変数を反映してデプロイするには、以下のコマンドを使用します。
+  ```bash
+  gcloud run deploy retention-engine-server \
+    --source . \
+    --region asia-northeast1 \
+    --allow-unauthenticated \
+    --set-env-vars "$(cat .env.run | grep -v '^#' | xargs | tr ' ' ',')"
+  ```
+  ※ 値にスペースやカンマが含まれる場合は、YAML形式のファイルを作成し `--env-vars-file` を使用することを推奨します。
+
 - **環境変数**:
   - ローカル開発時は `.env` ファイルを使用してください。
   - 本番環境では Cloud Run の環境変数設定機能を使用してください。
