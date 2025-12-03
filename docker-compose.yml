@@ -3,12 +3,18 @@ version: "3.9"
 services:
   server:
     # Build the same image used for Cloud Run to keep parity.
+    # Build the same image used for Cloud Run to keep parity.
     build:
       context: .
       dockerfile: Dockerfile
+      target: development
     image: retention-engine-server:local
+    command: npm run start:dev
     ports:
       - "5001:8080" # host:container (Cloud Run also listens on 8080)
+    volumes:
+      - .:/app
+      - /app/node_modules
     environment:
       NODE_ENV: development
       PORT: 8080
@@ -17,7 +23,6 @@ services:
       - .env # supply SUPABASE_*, GOOGLE_API_KEY, etc. without baking secrets into the image
     depends_on:
       - db
-    # Uses CMD from Dockerfile: node dist/main.js
 
   db:
     image: postgres:16

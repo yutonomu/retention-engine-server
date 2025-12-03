@@ -1,13 +1,19 @@
 # syntax=docker/dockerfile:1
 
 # Builder stage: install all deps and compile the Nest app.
-FROM node:22-bookworm AS builder
+FROM node:22-bookworm AS deps
 WORKDIR /app
 
 COPY package*.json ./
 RUN npm ci
 
-# Copy the full source and build to dist/.
+# Development stage: just deps, source mounted via volume
+FROM deps AS development
+ENV NODE_ENV=development
+CMD ["npm", "run", "start:dev"]
+
+# Builder stage: copy source and build
+FROM deps AS builder
 COPY . .
 RUN npm run build
 
