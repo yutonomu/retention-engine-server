@@ -82,4 +82,14 @@ export class ConversationRepository implements ConversationPort {
     }
     return data as unknown as Conversation[];
   }
+
+  async deleteById(convId: string): Promise<void> {
+    const { error } = await this.supabase
+      .from('conversation')
+      .delete()
+      .eq('conv_id', convId);
+    if (error) {
+      throw error;
+    }
+  }
 }

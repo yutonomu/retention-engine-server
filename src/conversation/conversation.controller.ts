@@ -3,6 +3,8 @@ import {
   Body,
   Controller,
   Get,
+  Delete,
+  HttpCode,
   Post,
   Query,
 } from '@nestjs/common';
@@ -61,6 +63,25 @@ export class ConversationController {
       body.role,
       body.displayName,
       body.email,
+    );
+  }
+
+  @Delete('newHire')
+  @HttpCode(204)
+  async deleteConversationForNewHire(
+    @Query('userId') userId?: string,
+    @Query('convId') convId?: string,
+  ): Promise<void> {
+    if (!userId) {
+      throw new BadRequestException('userId is required');
+    }
+    if (!convId) {
+      throw new BadRequestException('convId is required');
+    }
+
+    await this.conversationService.deleteConversationForNewHire(
+      userId,
+      convId,
     );
   }
 }

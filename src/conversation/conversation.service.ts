@@ -98,6 +98,37 @@ export class ConversationService {
     };
   }
 
+  async deleteConversationForNewHire(
+    userId: string,
+    convId: string,
+  ): Promise<void> {
+    if (!userId?.trim()) {
+      throw new BadRequestException('userId is required');
+    }
+    if (!convId?.trim()) {
+      throw new BadRequestException('convId is required');
+    }
+
+    const user = await this.userRepository.findUserById(userId);
+    if (!user) {
+      throw new NotFoundException(`User ${userId} not found`);
+    }
+    if (user.role !== 'NEW_HIRE') {
+      throw new ForbiddenException(
+        'Only NEW_HIRE users can delete conversations.',
+      );
+    }
+
+    const conversation = await this.conversationRepository.findById(convId);
+    if (conversation.owner_id !== user.user_id) {
+      throw new ForbiddenException(
+        'Only the owner can delete this conversation.',
+      );
+    }
+
+    await this.conversationRepository.deleteById(convId);
+  }
+
   async getActiveConversationListForMentor(
     mentorId: string,
   ): Promise<GetActiveConversationListForMentorReturn[]> {

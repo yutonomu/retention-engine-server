@@ -6,6 +6,7 @@ export interface ConversationPort {
   findByState(state: ConversationState): Promise<Conversation[]>;
   findById(convId: string): Promise<Conversation>;
   findActiveByOwners(ownerIds: string[]): Promise<Conversation[]>;
+  deleteById(convId: string): Promise<void>;
 }
 
 export const CONVERSATION_PORT = 'CONVERSATION_PORT';
