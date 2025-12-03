@@ -5,35 +5,25 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import type { Request } from 'express';
-import { JwksService } from './jwks.service';
-import { createVerify } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
+
+import type { JwtPayload } from './auth.types';
 
 type JwtHeader = {
   alg: string;
-  kid?: string;
   typ?: string;
 };
 
-type JwtPayload = {
-  sub?: string;
-  exp?: number;
-  email?: string;
-  role?: string;
-  [key: string]: unknown;
-};
-
-const base64urlDecode = (input: string): Buffer => {
-  return Buffer.from(input.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
-};
+const base64urlDecode = (input: string): Buffer =>
+  Buffer.from(input.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
-  constructor(private readonly jwksService: JwksService) {}
-
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context
       .switchToHttp()
       .getRequest<Request & { user?: JwtPayload }>();
+
     const authHeader: string | undefined = request.headers['authorization'];
     if (!authHeader?.toLowerCase().startsWith('bearer ')) {
       throw new UnauthorizedException('Missing Authorization header');
@@ -49,28 +39,34 @@ export class JwtAuthGuard implements CanActivate {
     const header = JSON.parse(
       base64urlDecode(encodedHeader).toString('utf8'),
     ) as JwtHeader;
-    if (header.alg !== 'RS256') {
+
+    if (header.alg !== 'HS256') {
       throw new UnauthorizedException('Unsupported JWT alg');
-    }
-    if (!header.kid) {
-      throw new UnauthorizedException('JWT kid is missing');
     }
 
     const payload = JSON.parse(
       base64urlDecode(encodedPayload).toString('utf8'),
-    ) as JwtPayload;
+    ) as JwtPayload & { exp?: number };
+
     if (payload.exp && Date.now() >= payload.exp * 1000) {
       throw new UnauthorizedException('JWT expired');
     }
 
-    const key = await this.jwksService.getKey(header.kid);
+    const secret = process.env.SUPABASE_JWT_SECRET;
+    if (!secret) {
+      throw new UnauthorizedException(
+        'SUPABASE_JWT_SECRET is not configured for HS256 verification',
+      );
+    }
+
     const signingInput = `${encodedHeader}.${encodedPayload}`;
     const signature = base64urlDecode(encodedSignature);
-    const verifier = createVerify('RSA-SHA256');
-    verifier.update(signingInput);
-    verifier.end();
-    const valid = verifier.verify(key, signature);
-    if (!valid) {
+    const expected = createHmac('sha256', secret).update(signingInput).digest();
+
+    if (
+      expected.length !== signature.length ||
+      !timingSafeEqual(expected, signature)
+    ) {
       throw new UnauthorizedException('JWT signature invalid');
     }
 
