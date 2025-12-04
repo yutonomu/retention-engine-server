@@ -215,11 +215,7 @@ export class LlmService {
    */
   private async generateSystemPrompt(userId: string): Promise<string> {
     // 1. ユーザーのプリセット設定を取得
-    // 注: UserPortインターフェースにgetUserPersonalityPresetメソッドがまだ追加されていないため、
-    // 一時的にanyにキャストして実装クラス（UserService）のメソッドにアクセスしています。
-    // TODO: UserPortインターフェースを更新してgetUserPersonalityPresetを追加する
-    const userService = this.userPort as any;
-    const presetId = await userService.getUserPersonalityPreset(userId) || toPersonalityPresetId('default_assistant');
+    const presetId = await this.userPort.getUserPersonalityPreset(userId) || toPersonalityPresetId('default_assistant');
 
     // 2. MBTI情報を取得
     const userMbti = await this.userPort.getUserMbti(userId);
