@@ -7,7 +7,9 @@ import {
   HttpCode,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ConversationService } from './conversation.service';
 import type {
   GetActiveConversationListForMentorReturn,
@@ -15,10 +17,9 @@ import type {
 } from './conversation.types';
 
 @Controller('conversations')
+@UseGuards(JwtAuthGuard)
 export class ConversationController {
-  // TODO: 認証ガード(@UseGuards(JwtAuthGuard))が未実装です。
-  // 早急に認証を追加し、userIdやmentorIdをリクエストボディ/クエリではなく、
-  // req.userから取得するように修正する必要があります。
+  // TODO: userIdやmentorIdをリクエストボディ/クエリではなく、req.userから取得するように修正する
   constructor(private readonly conversationService: ConversationService) { }
 
   @Get('mentor')

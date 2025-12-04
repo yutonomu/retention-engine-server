@@ -1,4 +1,5 @@
-import { Body, Controller, Logger, Post, UsePipes } from '@nestjs/common';
+import { Body, Controller, Logger, Post, UseGuards, UsePipes } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { llmGenerateRequestSchema } from './dto/llmGenerateRequest.dto';
 import type { LlmGenerateRequestDto } from './dto/llmGenerateRequest.dto';
 import { ZodValidationPipe } from '../common/pipes/zodValidation.pipe';
@@ -16,9 +17,8 @@ interface UploadDocumentRequestBody {
 }
 
 @Controller('llm')
+@UseGuards(JwtAuthGuard)
 export class LlmController {
-  // TODO: 認証ガード(@UseGuards(JwtAuthGuard))が未実装です。
-  // 不正利用を防ぐため、認証を追加してください。
   private readonly logger = new Logger(LlmController.name);
 
   constructor(private readonly llmService: LlmService) {}

@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { MessageService } from './message.service';
 import type { Message } from './message.types';
 
@@ -17,9 +18,8 @@ interface CreateMessageResponse {
 }
 
 @Controller('messages')
+@UseGuards(JwtAuthGuard)
 export class MessageController {
-  // TODO: 認証ガード(@UseGuards(JwtAuthGuard))が未実装です。
-  // 会話内容の漏洩を防ぐため、早急に認証を追加してください。
   constructor(private readonly messageService: MessageService) { }
 
   @Get()
