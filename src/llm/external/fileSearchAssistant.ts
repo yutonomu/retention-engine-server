@@ -1,10 +1,13 @@
 import type { Message } from '../../Entity/Message';
 import type { UUID } from '../../common/uuid';
+import type { SearchSettings } from '../dto/llmGenerateRequest.dto';
 
 export type FileSearchAnswerOptions = {
   conversationId: UUID;
   history?: Message[];
   systemInstruction?: string;
+  searchSettings?: SearchSettings; // User-Controlled Search用
+  geminiCacheName?: string; // Gemini Context Caching（トークンコスト削減）
 };
 
 export type FileSearchAnswerResult = {

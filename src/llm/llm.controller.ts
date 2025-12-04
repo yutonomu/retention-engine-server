@@ -21,24 +21,34 @@ export class LlmController {
   // 不正利用を防ぐため、認証を追加してください。
   private readonly logger = new Logger(LlmController.name);
 
-  constructor(private readonly llmService: LlmService) { }
+  constructor(private readonly llmService: LlmService) {}
 
   @UsePipes(new ZodValidationPipe(llmGenerateRequestSchema))
   @Post('generate')
   async generate(@Body() payload: LlmGenerateRequestDto) {
     this.logger.log(
-      `Received LLM generate request payload=${JSON.stringify(payload)}`,
+      `Received LLM generate request: ` +
+        `question="${payload.question.substring(0, 50)}..." ` +
+        `fileSearch=${payload.searchSettings?.enableFileSearch ?? true} ` +
+        `webSearch=${payload.searchSettings?.allowWebSearch ?? false} ` +
+        `executeWeb=${payload.searchSettings?.executeWebSearch ?? false}`,
     );
 
     const command: LlmGenerateCommand = {
       prompt: payload.question,
       conversationId: payload.conversationId as UUID,
+      searchSettings: payload.searchSettings,
     };
 
     const result = await this.llmService.generate(command);
 
     return {
+      type: result.type,
       answer: result.answer,
+      needsWebSearch: result.needsWebSearch,
+      webSearchReason: result.webSearchReason,
+      confirmationLabels: result.confirmationLabels,
+      sources: result.sources,
     };
   }
 

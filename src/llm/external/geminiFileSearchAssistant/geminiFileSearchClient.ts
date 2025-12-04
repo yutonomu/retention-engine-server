@@ -26,6 +26,14 @@ import type {
 
 const POLL_INTERVAL_MS = 5000;
 const STORE_REGISTRY_PATH = path.resolve('store-registry.json');
+
+// Retry設定
+const RETRY_CONFIG = {
+  maxRetries: 3,
+  baseDelayMs: 1000,
+  maxDelayMs: 10000,
+  retryableStatusCodes: [503, 429, 500],
+};
 const FILE_SEARCH_INSTRUCTION = `
 あなたは、提供された【コンテキスト】に厳密に基づいて質問に回答するAIアシスタントです。以下のルールを必ず守ってください。
 
@@ -104,18 +112,21 @@ export class GeminiFileSearchClient {
       parts: [{ text: question }],
     });
 
-    const response = await this.ai.models.generateContent({
-      model: 'gemini-2.5-pro',
-      contents,
-      config: {
-        tools: [
-          {
-            fileSearch: {
-              fileSearchStoreNames: this.storeNamesForSearch,
+    // Retryロジック適用
+    const response = await this.executeWithRetry(async () => {
+      return this.ai.models.generateContent({
+        model: 'gemini-2.5-pro',
+        contents,
+        config: {
+          tools: [
+            {
+              fileSearch: {
+                fileSearchStoreNames: this.storeNamesForSearch,
+              },
             },
-          },
-        ],
-      },
+          ],
+        },
+      });
     });
 
     this.logCitedChunks(response);
@@ -131,6 +142,54 @@ export class GeminiFileSearchClient {
     };
 
     return { answer, message: assistantMessage };
+  }
+
+  /**
+   * Exponential backoffを使用したretryロジック
+   */
+  private async executeWithRetry<T>(
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
+      try {
+        return await operation();
+      } catch (error) {
+        lastError = error as Error;
+        const statusCode = (error as { status?: number }).status;
+
+        // リトライ可能なエラーか確認
+        if (
+          !statusCode ||
+          !RETRY_CONFIG.retryableStatusCodes.includes(statusCode)
+        ) {
+          throw error;
+        }
+
+        // 最後の試行だったらエラーをthrow
+        if (attempt === RETRY_CONFIG.maxRetries) {
+          this.logger.error(
+            `All ${RETRY_CONFIG.maxRetries + 1} attempts failed. Last error: ${lastError.message}`,
+          );
+          throw error;
+        }
+
+        // Exponential backoff計算
+        const delay = Math.min(
+          RETRY_CONFIG.baseDelayMs * Math.pow(2, attempt),
+          RETRY_CONFIG.maxDelayMs,
+        );
+
+        this.logger.warn(
+          `API call failed with status ${statusCode}, retrying in ${delay}ms (attempt ${attempt + 1}/${RETRY_CONFIG.maxRetries + 1})`,
+        );
+
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+
+    throw lastError;
   }
 
   async uploadDocuments(documents: FileDocument[]): Promise<void> {

@@ -16,6 +16,11 @@ import * as path from 'path';
 import { MBTI_COMMUNICATION_STYLES } from '../user/mbti.types';
 import { PersonalityPresetService } from '../personality-preset/personalityPreset.service';
 import { PersonalityPreset, type PersonalityPresetId, toPersonalityPresetId } from '../personality-preset/personalityPreset.types';
+import type { SearchSettings } from './dto/llmGenerateRequest.dto';
+import { ResponseType, type WebSource } from './dto/llmGenerateResponse.dto';
+import type { HybridAnswerResult } from './external/hybridRagAssistant';
+import { InMemoryCacheService } from './cache/inMemoryCacheService';
+import { GeminiCacheService } from './cache/geminiCacheService';
 
 // FILE_SEARCH_INSTRUCTIONを定数として定義
 const FILE_SEARCH_INSTRUCTION = `
@@ -31,11 +36,23 @@ FileSearchが返すドキュメントの根拠が確認できない場合は、�
 export type LlmGenerateCommand = {
   prompt: string;
   conversationId: UUID;
+  searchSettings?: SearchSettings;
 };
 
 export type LlmGenerateResult = {
+  type: ResponseType;
   answer: string;
   message: Message;
+  needsWebSearch?: boolean;
+  webSearchReason?: string;
+  confirmationLabels?: {
+    confirm: string;
+    cancel: string;
+  };
+  sources?: {
+    fileSearch?: string[];
+    webSearch?: WebSource[];
+  };
 };
 
 export type UploadDocumentCommand = {
@@ -59,21 +76,16 @@ export class LlmService {
     @Inject(CONVERSATION_PORT)
     private readonly conversationPort: ConversationPort,
     private readonly personalityPresetService: PersonalityPresetService,
+    private readonly inMemoryCacheService: InMemoryCacheService,
+    private readonly geminiCacheService: GeminiCacheService,
   ) { }
 
   async generate(command: LlmGenerateCommand): Promise<LlmGenerateResult> {
     this.logger.log(
-      `Processing LLM generate command=${JSON.stringify(command)}`,
-    );
-
-    const history = await this.messagePort.findAllByConversation(
-      command.conversationId.toString(),
-    );
-
-    this.logger.log(
-      `Loaded conversation history conversationId="${command.conversationId}" messages=${JSON.stringify(
-        history,
-      )}`,
+      `Processing LLM generate command: ` +
+        `fileSearch=${command.searchSettings?.enableFileSearch ?? true}, ` +
+        `webSearch=${command.searchSettings?.allowWebSearch ?? false}, ` +
+        `executeWeb=${command.searchSettings?.executeWebSearch ?? false}`,
     );
 
     // 会話の所有者を取得
@@ -87,10 +99,44 @@ export class LlmService {
       throw new Error(`Conversation ${command.conversationId} has no owner`);
     }
 
-    // ユーザーの性格プリセットに基づいてシステムプロンプトを生成
-    const systemInstruction = await this.generateSystemPrompt(conversation.owner_id);
+    // キャッシュを通じた会話履歴取得
+    const history = await this.inMemoryCacheService.getOrCreateConversation<Message>(
+      command.conversationId.toString(),
+      async () => {
+        const messages = await this.messagePort.findAllByConversation(
+          command.conversationId.toString(),
+        );
+        return messages as unknown as Message[];
+      },
+    );
+
     this.logger.log(
-      `Generated system prompt for userId=${conversation.owner_id}`,
+      `Loaded conversation history conversationId="${command.conversationId}" count=${history.length}`,
+    );
+
+    // キャッシュを通じたシステムプロンプト生成
+    const systemInstruction = await this.inMemoryCacheService.getOrCreateSystemPrompt(
+      conversation.owner_id,
+      async () => this.generateSystemPrompt(conversation.owner_id),
+    );
+
+    // Gemini Context Caching試行（トークンコスト削減）
+    let geminiCacheName: string | null = null;
+    try {
+      geminiCacheName = await this.geminiCacheService.getOrCreateSystemPromptCache(
+        conversation.owner_id,
+        systemInstruction,
+        'gemini-2.0-flash',
+      );
+      if (geminiCacheName) {
+        this.logger.log(`Gemini cache ready: ${geminiCacheName}`);
+      }
+    } catch (error) {
+      this.logger.warn('Failed to create Gemini cache, proceeding without caching', error);
+    }
+
+    this.logger.log(
+      `System prompt ready for userId=${conversation.owner_id}`,
     );
 
     const userMessage: Message = {
@@ -101,19 +147,32 @@ export class LlmService {
       createdAt: new Date(),
     };
 
-    let llmResult: { answer: string; message: Message };
+    let llmResult: LlmGenerateResult;
     try {
-      llmResult = await this.fileSearchAssistant.answerQuestion(
+      // HybridRagAssistantを通じて回答生成
+      const result = (await this.fileSearchAssistant.answerQuestion(
         command.prompt,
         {
           conversationId: command.conversationId,
           history: [...(history as unknown as Message[]), userMessage],
           systemInstruction,
+          searchSettings: command.searchSettings,
+          geminiCacheName: geminiCacheName ?? undefined,
         },
-      );
+      )) as HybridAnswerResult;
+
+      llmResult = {
+        type: result.type,
+        answer: result.answer,
+        message: result.message,
+        needsWebSearch: result.needsWebSearch,
+        webSearchReason: result.webSearchReason,
+        confirmationLabels: result.confirmationLabels,
+        sources: result.sources,
+      };
     } catch (error) {
       this.logger.error(
-        `Failed to generate answer via FileSearchAssistant conversationId="${command.conversationId}"`,
+        `Failed to generate answer via HybridRagAssistant conversationId="${command.conversationId}"`,
         error as Error,
       );
       const fallbackMessage: Message = {
@@ -125,15 +184,24 @@ export class LlmService {
         createdAt: new Date(),
       };
       llmResult = {
+        type: ResponseType.ANSWER,
         answer: fallbackMessage.content,
         message: fallbackMessage,
       };
     }
 
     this.logger.log(
-      `Appended assistant message to conversationId="${command.conversationId}" message=${JSON.stringify(
-        llmResult.message,
-      )}`,
+      `Generated answer: type=${llmResult.type} length=${llmResult.answer.length}`,
+    );
+
+    // 会話キャッシュにユーザーメッセージとレスポンスメッセージを追加
+    this.inMemoryCacheService.appendToConversation(
+      command.conversationId.toString(),
+      userMessage,
+    );
+    this.inMemoryCacheService.appendToConversation(
+      command.conversationId.toString(),
+      llmResult.message,
     );
 
     return llmResult;
