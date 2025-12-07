@@ -120,70 +120,15 @@ export class GeneralKnowledgeAssistant {
 
   /**
    * 質問タイプ判定 - FileSearchが必要か分類
-   * - 日常会話/雑談 → FileSearch不要
-   * - 社内文書検索必要 → FileSearch必要
+   * - デバッグモード：常に社内検索をオン
    */
   async classifyQuestionType(
     question: string,
   ): Promise<{ needsFileSearch: boolean; reason: string }> {
-    this.logger.log(`Classifying question type: "${question.substring(0, 30)}..."`);
+    this.logger.log(`Classifying question type: "${question.substring(0, 30)}..." (DEBUG: forcing FileSearch)`);
 
-    const classificationPrompt = `
-あなたは質問の種類を分類するアシスタントです。
-
-【質問】
-${question}
-
-【分類タスク】
-この質問が「社内資料検索が必要」かどうかを判断してください。
-
-■ 社内資料検索が【不要】な場合:
-1. 挨拶・自己紹介（例: こんにちは、君は何？、お元気ですか）
-2. 一般的な雑談・日常会話（例: 今日の天気は？、週末どうだった？）
-3. AIアシスタント自身についての質問（例: あなたは誰？、何ができる？）
-4. 一般常識・一般知識（例: 日本の首都は？、1+1は？）
-5. 感謝・確認・了解（例: ありがとう、わかりました）
-
-■ 社内資料検索が【必要】な場合:
-1. 会社固有の情報（例: 休暇の申請方法、経費精算のルール）
-2. 社内プロセス・手続き（例: 出張申請はどうすればいい？）
-3. 社内ツール・システム（例: 勤怠システムの使い方）
-4. 社内規定・ポリシー（例: リモートワークのルール）
-5. プロジェクト・業務関連（例: 新入社員研修のスケジュール）
-
-JSON形式で回答してください:
-{
-  "needsFileSearch": true/false,
-  "reason": "判断理由を簡潔に（20文字以内）"
-}
-
-JSON以外の出力は不要です。
-`.trim();
-
-    try {
-      const response = await this.ai.models.generateContent({
-        model: 'gemini-2.0-flash',
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: classificationPrompt }],
-          },
-        ],
-      });
-
-      const responseText = this.extractText(response);
-      const result = this.parseClassification(responseText);
-
-      this.logger.log(
-        `Question classified: needsFileSearch=${result.needsFileSearch}, reason="${result.reason}"`,
-      );
-
-      return result;
-    } catch (error) {
-      this.logger.warn('Failed to classify question type, defaulting to FileSearch', error);
-      // 判定失敗時は安全にFileSearch実行
-      return { needsFileSearch: true, reason: '分類エラー' };
-    }
+    // デバッグ用：常に社内検索を実行
+    return { needsFileSearch: true, reason: 'デバッグモード' };
   }
 
   /**
@@ -257,6 +202,7 @@ JSON以外の出力は不要です。
       });
 
       const responseText = this.extractText(response);
+      this.logger.log(`Answer sufficiency judgment: ${responseText}`);
       return this.parseJudgment(responseText);
     } catch (error) {
       this.logger.warn('Failed to judge answer sufficiency', error);
