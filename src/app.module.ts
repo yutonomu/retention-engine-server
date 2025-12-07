@@ -11,6 +11,7 @@ import { MessageModule } from './message/message.module';
 import { SupabaseModule } from './supabase/supabase.module';
 import { AuthModule } from './auth/auth.module';
 import { PersonalityPresetModule } from './personality-preset/personalityPreset.module';
+import { AvatarModule } from './avatar/avatar.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { PersonalityPresetModule } from './personality-preset/personalityPreset.
     UserModule,
     MessageModule,
     PersonalityPresetModule,
+    AvatarModule,
   ],
   controllers: [AppController],
   providers: [AppService],
