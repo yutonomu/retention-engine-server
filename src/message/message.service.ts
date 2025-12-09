@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import type { MessagePort } from './message.port';
 import { MESSAGE_PORT } from './message.port';
@@ -27,7 +28,10 @@ export class MessageService {
     if (!convId?.trim()) {
       throw new BadRequestException('convId is required');
     }
-    await this.conversationRepository.findById(convId);
+    const conversation = await this.conversationRepository.findById(convId);
+    if (!conversation) {
+      throw new NotFoundException(`Conversation ${convId} not found`);
+    }
     return this.messageRepository.findAllByConversation(convId);
   }
 
@@ -46,7 +50,10 @@ export class MessageService {
     if (!trimmedContent) {
       throw new BadRequestException('content must not be empty');
     }
-    await this.conversationRepository.findById(input.convId);
+    const conversation = await this.conversationRepository.findById(input.convId);
+    if (!conversation) {
+      throw new NotFoundException(`Conversation ${input.convId} not found`);
+    }
     return this.messageRepository.createMessage({
       convId: input.convId,
       role: input.role,
@@ -65,6 +72,9 @@ export class MessageService {
       throw new BadRequestException('convId is required');
     }
     const conversation = await this.conversationRepository.findById(convId);
+    if (!conversation) {
+      throw new NotFoundException(`Conversation ${convId} not found`);
+    }
     const assignment =
       await this.mentorAssignmentRepository.findByMentorId(mentorId);
     if (

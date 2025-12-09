@@ -5,7 +5,7 @@ import type { Message } from '../../Entity/Message';
 export type WebSource = {
   title: string;
   url: string;
-  snippet: string;
+  snippet?: string;
 };
 
 export type WebSearchResult = {

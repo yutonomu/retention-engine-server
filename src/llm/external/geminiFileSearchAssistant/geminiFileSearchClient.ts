@@ -23,6 +23,10 @@ import type {
   FileSearchAnswerOptions,
   FileSearchAnswerResult,
 } from '../fileSearchAssistant';
+import type {
+  FileSearchChunk,
+  FileSearchSource,
+} from '../../dto/llmGenerateResponse.dto';
 
 const POLL_INTERVAL_MS = 5000;
 const STORE_REGISTRY_PATH = path.resolve('store-registry.json');
@@ -132,6 +136,7 @@ export class GeminiFileSearchClient {
     this.logCitedChunks(response);
 
     const answer = this.extractText(response);
+    const fileSearchSources = this.extractCitations(response);
     const conversationId = options.conversationId;
     const assistantMessage: Message = {
       messageId: createUUID(),
@@ -141,7 +146,12 @@ export class GeminiFileSearchClient {
       createdAt: new Date(),
     };
 
-    return { answer, message: assistantMessage };
+    // FileSearchSources構造に合わせてネスト
+    const sources = fileSearchSources.length > 0
+      ? { fileSearch: fileSearchSources }
+      : undefined;
+
+    return { answer, message: assistantMessage, sources };
   }
 
   /**
@@ -398,6 +408,105 @@ export class GeminiFileSearchClient {
       }
       this.logGroundingMetadata(groundingMetadata, candidateIndex);
     });
+  }
+
+  /**
+   * Extract structured citation data from Gemini response
+   * Parses groundingMetadata.groundingChunks and groups by file/document
+   */
+  private extractCitations(
+    response: GenerateContentResponse,
+  ): FileSearchSource[] {
+    const candidates = response.candidates ?? [];
+    if (!candidates.length) {
+      return [];
+    }
+
+    // Collect all chunks from all candidates
+    const allChunks: GroundingChunk[] = [];
+    for (const candidate of candidates) {
+      const groundingMetadata = candidate?.groundingMetadata;
+      if (!groundingMetadata?.groundingChunks) {
+        continue;
+      }
+      allChunks.push(...groundingMetadata.groundingChunks);
+    }
+
+    if (!allChunks.length) {
+      return [];
+    }
+
+    // Group chunks by file/document name
+    const sourceMap = new Map<string, FileSearchChunk[]>();
+
+    for (const chunk of allChunks) {
+      const fileName = this.describeChunk(chunk);
+      const chunkData = this.convertChunkToFileSearchChunk(chunk);
+
+      if (!sourceMap.has(fileName)) {
+        sourceMap.set(fileName, []);
+      }
+      sourceMap.get(fileName)!.push(chunkData);
+    }
+
+    // Convert map to FileSearchSource array
+    const sources: FileSearchSource[] = Array.from(
+      sourceMap.entries(),
+    ).map(([fileName, chunks]) => ({
+      fileName,
+      documentId: this.extractDocumentId(chunks[0]),
+      chunks,
+    }));
+
+    return sources;
+  }
+
+  /**
+   * Convert Gemini GroundingChunk to FileSearchChunk
+   */
+  private convertChunkToFileSearchChunk(
+    chunk: GroundingChunk,
+  ): FileSearchChunk {
+    const text = this.extractChunkSnippet(chunk) ?? '';
+    const pageSpan = chunk.retrievedContext?.ragChunk?.pageSpan;
+
+    return {
+      chunkId: this.extractChunkId(chunk),
+      text,
+      pageStart: pageSpan?.firstPage,
+      pageEnd: pageSpan?.lastPage,
+      confidence: this.extractConfidence(chunk),
+    };
+  }
+
+  /**
+   * Extract chunk ID from GroundingChunk
+   */
+  private extractChunkId(chunk: GroundingChunk): string | undefined {
+    // Try to extract chunk ID from various possible locations
+    const retrieved = chunk.retrievedContext;
+    if (retrieved?.ragChunk) {
+      // Use document name as a fallback chunk identifier
+      return this.extractDocName(retrieved.documentName) ?? undefined;
+    }
+    return undefined;
+  }
+
+  /**
+   * Extract document ID from chunk
+   */
+  private extractDocumentId(chunk: FileSearchChunk): string | undefined {
+    return chunk.chunkId;
+  }
+
+  /**
+   * Extract confidence score from chunk
+   * Note: Gemini API may not always provide explicit confidence scores
+   */
+  private extractConfidence(chunk: GroundingChunk): number | undefined {
+    // Gemini API doesn't expose confidence directly in current version
+    // This is a placeholder for future API enhancements
+    return undefined;
   }
 
   private logGroundingMetadata(

@@ -120,6 +120,9 @@ export class ConversationService {
     }
 
     const conversation = await this.conversationRepository.findById(convId);
+    if (!conversation) {
+      throw new NotFoundException(`Conversation ${convId} not found`);
+    }
     if (conversation.owner_id !== user.user_id) {
       throw new ForbiddenException(
         'Only the owner can delete this conversation.',

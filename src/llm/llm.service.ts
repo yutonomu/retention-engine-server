@@ -17,7 +17,7 @@ import { MBTI_COMMUNICATION_STYLES } from '../user/mbti.types';
 import { PersonalityPresetService } from '../personality-preset/personalityPreset.service';
 import { PersonalityPreset, type PersonalityPresetId, toPersonalityPresetId } from '../personality-preset/personalityPreset.types';
 import type { SearchSettings } from './dto/llmGenerateRequest.dto';
-import { ResponseType, type WebSource } from './dto/llmGenerateResponse.dto';
+import { ResponseType, type WebSource, type FileSearchSource } from './dto/llmGenerateResponse.dto';
 import type { HybridAnswerResult } from './external/hybridRagAssistant';
 import { InMemoryCacheService } from './cache/inMemoryCacheService';
 import { GeminiCacheService } from './cache/geminiCacheService';
@@ -50,7 +50,7 @@ export type LlmGenerateResult = {
     cancel: string;
   };
   sources?: {
-    fileSearch?: string[];
+    fileSearch?: FileSearchSource[];
     webSearch?: WebSource[];
   };
 };
@@ -92,11 +92,21 @@ export class LlmService {
     const conversation = await this.conversationPort.findById(
       command.conversationId.toString(),
     );
+
+    // Conversation 검증 - 친절한 에러 응답 반환
     if (!conversation) {
-      throw new Error(`Conversation ${command.conversationId} not found`);
+      this.logger.error(`Conversation not found: ${command.conversationId}`);
+      return this.createErrorResponse(
+        command.conversationId,
+        '会話が見つかりませんでした。新しい会話を開始してください。',
+      );
     }
     if (!conversation.owner_id) {
-      throw new Error(`Conversation ${command.conversationId} has no owner`);
+      this.logger.error(`Conversation has no owner: ${command.conversationId}`);
+      return this.createErrorResponse(
+        command.conversationId,
+        '会話の所有者情報が見つかりませんでした。再度ログインしてください。',
+      );
     }
 
     // キャッシュを通じた会話履歴取得
@@ -318,5 +328,25 @@ ${preset.systemPromptCore}
       default:
         return 'application/octet-stream';
     }
+  }
+
+  /**
+   * エラー時の統一レスポンス生成ヘルパー
+   */
+  private createErrorResponse(
+    conversationId: UUID,
+    message: string,
+  ): LlmGenerateResult {
+    return {
+      type: ResponseType.ANSWER,
+      answer: message,
+      message: {
+        messageId: createUUID(),
+        conversationId,
+        userRole: 'ASSISTANT',
+        content: message,
+        createdAt: new Date(),
+      },
+    };
   }
 }

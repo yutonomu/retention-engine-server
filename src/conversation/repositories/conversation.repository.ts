@@ -12,6 +12,11 @@ export class ConversationRepository implements ConversationPort {
   ) {}
 
   async create(ownerId: string, title: string): Promise<Conversation> {
+    // owner_id 필수 검증
+    if (!ownerId?.trim()) {
+      throw new Error('owner_id is required to create a conversation');
+    }
+
     const now = new Date().toISOString();
     const convId = randomUUID();
     const { data, error } = await this.supabase
@@ -56,16 +61,19 @@ export class ConversationRepository implements ConversationPort {
     return data as unknown as Conversation[];
   }
 
-  async findById(convId: string): Promise<Conversation> {
+  async findById(convId: string): Promise<Conversation | null> {
     const { data, error } = await this.supabase
       .from('conversation')
       .select()
       .eq('conv_id', convId)
-      .single();
-    if (error || !data) {
-      throw new NotFoundException(`Conversation ${convId} not found.`);
+      .maybeSingle();
+
+    if (error) {
+      console.error(`[ConversationRepository] Failed to fetch conversation: ${convId}`, error);
+      throw error;
     }
-    return data as unknown as Conversation;
+
+    return data as Conversation | null;
   }
 
   async findActiveByOwners(ownerIds: string[]): Promise<Conversation[]> {

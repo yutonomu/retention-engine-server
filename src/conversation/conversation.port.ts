@@ -4,7 +4,7 @@ export interface ConversationPort {
   create(ownerId: string, title: string): Promise<Conversation>;
   findByOwner(ownerId: string): Promise<Conversation[]>;
   findByState(state: ConversationState): Promise<Conversation[]>;
-  findById(convId: string): Promise<Conversation>;
+  findById(convId: string): Promise<Conversation | null>;
   findActiveByOwners(ownerIds: string[]): Promise<Conversation[]>;
   deleteById(convId: string): Promise<void>;
 }

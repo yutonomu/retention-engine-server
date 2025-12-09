@@ -9,7 +9,11 @@ import { WebSearchAssistant, type WebSource, type WebSearchResult } from './webS
 import { GeneralKnowledgeAssistant } from './generalKnowledgeAssistant';
 import type { Message } from '../../Entity/Message';
 import { createUUID, type UUID } from '../../common/uuid';
-import { ResponseType, type WebSearchConfirmationLabels } from '../dto/llmGenerateResponse.dto';
+import {
+  ResponseType,
+  type WebSearchConfirmationLabels,
+  type FileSearchSource,
+} from '../dto/llmGenerateResponse.dto';
 import type { SearchSettings } from '../dto/llmGenerateRequest.dto';
 
 export type HybridAnswerResult = {
@@ -20,7 +24,7 @@ export type HybridAnswerResult = {
   webSearchReason?: string;
   confirmationLabels?: WebSearchConfirmationLabels;
   sources?: {
-    fileSearch?: string[];
+    fileSearch?: FileSearchSource[];
     webSearch?: WebSource[];
   };
 };
@@ -182,15 +186,13 @@ export class HybridRagAssistant extends FileSearchAssistant {
         'FileSearch timeout',
       );
 
-      const fileSearchSources = this.extractRagSources(result.answer);
-
+      // Use Gemini's structured sources from groundingMetadata
+      // result.sources is already { fileSearch?: FileSearchSource[] }
       return {
         type: ResponseType.ANSWER,
         answer: result.answer,
         message: result.message,
-        sources: {
-          fileSearch: fileSearchSources,
-        },
+        sources: result.sources,
       };
     } catch (error) {
       this.logger.error('FileSearch failed', error);
@@ -523,7 +525,14 @@ ${webResult.answer}
   }
 
   /**
+   * @deprecated No longer needed - Gemini provides structured sources via groundingMetadata
+   *
    * RAGソース抽出（レスポンステキストから）
+   * This method extracted file names using regex patterns from answer text.
+   * Now replaced by Gemini's native groundingMetadata API which provides:
+   * - Structured FileSearchSource[] with fileName, documentId, and chunks
+   * - Detailed chunk information with text snippets and page numbers
+   * - Confidence scores for each citation
    */
   private extractRagSources(answer: string): string[] {
     // ファイル名パターン抽出（例: [filename.txt], 【filename.pdf】）

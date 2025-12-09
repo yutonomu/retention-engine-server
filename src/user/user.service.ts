@@ -77,7 +77,9 @@ export class UserService implements UserPort {
   async getUserMbti(userId: string): Promise<MbtiType | null> {
     const user = await this.findUserById(userId);
     if (!user) {
-      throw new Error('User not found');
+      // 유저가 없는 경우 null 반환 (유령 계정 등 엣지 케이스 대응)
+      console.warn(`[UserService] User not found for getUserMbti: ${userId}`);
+      return null;
     }
     return user.mbti;
   }
@@ -85,7 +87,9 @@ export class UserService implements UserPort {
   async getUserPersonalityPreset(userId: string): Promise<PersonalityPresetId | null> {
     const user = await this.findUserById(userId);
     if (!user) {
-      throw new Error('User not found');
+      // 유저가 없는 경우 null 반환 (유령 계정 등 엣지 케이스 대응)
+      console.warn(`[UserService] User not found for getUserPersonalityPreset: ${userId}`);
+      return null;
     }
     return user.personalityPresetId;
   }
