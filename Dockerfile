@@ -32,6 +32,11 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY package*.json ./
 
+# Copy store-registry.json for Gemini FileSearch Store persistence
+# This file contains the mapping of store display names to Gemini API store names
+# Without this file, RAG functionality will fail in production
+COPY --from=builder /app/store-registry.json ./store-registry.json
+
 EXPOSE 8080
 # Cloud Run provides PORT; Nest already listens on process.env.PORT.
 CMD ["node", "dist/main.js"]
