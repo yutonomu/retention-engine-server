@@ -13,6 +13,7 @@ const onboardingGuidePath2 = path.resolve(
 );
 const sonunPath = path.resolve(process.cwd(), 'resources', 'sonun-tips.txt');
 
+// TODO: filesっていらなくない？
 export const defaultGeminiFileSearchAssistantOptions: GeminiFileSearchAssistantOptions =
   {
     storeSeeds: [
