@@ -13,7 +13,7 @@ import { PersonalityPresetModule } from '../personality-preset/personalityPreset
 // Hybrid RAG関連imports
 import { WebSearchAssistant } from './external/webSearchAssistant';
 import { GeneralKnowledgeAssistant } from './external/generalKnowledgeAssistant';
-import { HybridRagAssistant } from './external/hybridRagAssistant';
+import { HybridRagAssistant } from './external/hybridRagAssistantV2';
 import { InMemoryCacheService } from './cache/inMemoryCacheService';
 import { GeminiCacheService } from './cache/geminiCacheService';
 
@@ -67,10 +67,11 @@ const ORIGINAL_FILE_SEARCH_ASSISTANT = 'ORIGINAL_FILE_SEARCH_ASSISTANT';
         ragService: FileSearchAssistant,
         webService: WebSearchAssistant,
         generalService: GeneralKnowledgeAssistant,
+        cacheService: InMemoryCacheService,
       ) => {
-        return new HybridRagAssistant(ragService, webService, generalService);
+        return new HybridRagAssistant(ragService, webService, generalService, cacheService);
       },
-      inject: [ORIGINAL_FILE_SEARCH_ASSISTANT, WebSearchAssistant, GeneralKnowledgeAssistant],
+      inject: [ORIGINAL_FILE_SEARCH_ASSISTANT, WebSearchAssistant, GeneralKnowledgeAssistant, InMemoryCacheService],
     },
   ],
   exports: [LlmService, GeminiTextService],

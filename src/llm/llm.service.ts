@@ -16,39 +16,57 @@ import * as path from 'path';
 import { MBTI_COMMUNICATION_STYLES } from '../user/mbti.types';
 import { PersonalityPresetService } from '../personality-preset/personalityPreset.service';
 import { PersonalityPreset, type PersonalityPresetId, toPersonalityPresetId } from '../personality-preset/personalityPreset.types';
-import type { SearchSettings } from './dto/llmGenerateRequest.dto';
 import { ResponseType, type WebSource, type FileSearchSource } from './dto/llmGenerateResponse.dto';
-import type { HybridAnswerResult } from './external/hybridRagAssistant';
+import type { HybridAnswerResult } from './external/hybridRagAssistantV2';
 import { InMemoryCacheService } from './cache/inMemoryCacheService';
 import { GeminiCacheService } from './cache/geminiCacheService';
 
-// FILE_SEARCH_INSTRUCTIONを定数として定義
+// FILE_SEARCH_INSTRUCTIONを定数として定義（改善版）
 const FILE_SEARCH_INSTRUCTION = `
-あなたは、提供された【コンテキスト】に厳密に基づいて質問に回答するAIアシスタントです。以下のルールを必ず守ってください。
+あなたは社内ドキュメント検索システム（FileSearch）を活用するAIアシスタントです。以下のルールに従って回答してください：
 
-1. 厳密な事実に基づいた回答: コンテキストに含まれていない情報は一切含めず、「情報が見つかりませんでした」と答えてください。推測や一般常識は使わないでください。
-2. 引用元の明記: 回答の各文がどのコンテキスト（ファイル名やチャンクIDなど）に基づいているかを、必ず引用形式で示してください（例: [onboarding-tips.txt, chunk-1]）。
-3. 日本語での出力: 丁寧で平易な日本語で回答してください。
+【重要な原則】
+1. FileSearchで検索されたドキュメントを最優先で使用し、質問に最も適切なドキュメントを精査してから回答する
+2. 情報源を明確に区別して伝える
 
-FileSearchが返すドキュメントの根拠が確認できない場合は、必ず「情報が見つかりませんでした」と返してください。
+【回答方法】
+■ ドキュメントに情報がある場合：
+- FileSearchで取得したドキュメントの内容に基づいて正確に回答
+- 引用元を明記する（例: [ファイル名, チャンクID]）
+- ドキュメントの内容を忠実に反映し、勝手な解釈を加えない
+
+■ ドキュメントに情報がない場合：
+- 「社内ドキュメントには該当する情報が見つかりませんでしたが、私の知識では...」と前置きする
+- 「これは私の推論ですが...」「一般的な知識として...」など、情報源を明確にする
+- あくまで参考情報として提供し、確実性が低いことを示す
+
+■ 部分的に情報がある場合：
+- ドキュメントにある部分は引用元を明記して正確に伝える
+- ドキュメントにない部分は「これ以降は私の推論ですが...」と明確に区別する
+
+【質問への対応】
+- 質問内容を正確に理解し、最も関連性の高いドキュメントを選択する
+- 複数のドキュメントに関連情報がある場合は、それぞれから適切に引用する
+- ドキュメントの検索結果を精査し、古い情報と新しい情報がある場合は日付を確認する
+
+【名前の扱い】
+- ユーザーの名前がわからない場合は、「○○様」「○○さん」などの仮の名前を使わない
+- 名前を知らない相手には「あなた」を使うか、主語を省略する
+
+【出力言語】
+- 丁寧で分かりやすい日本語で回答する
 `.trim();
 
 export type LlmGenerateCommand = {
   prompt: string;
   conversationId: UUID;
-  searchSettings?: SearchSettings;
+  requireWebSearch: boolean;
 };
 
 export type LlmGenerateResult = {
   type: ResponseType;
   answer: string;
   message: Message;
-  needsWebSearch?: boolean;
-  webSearchReason?: string;
-  confirmationLabels?: {
-    confirm: string;
-    cancel: string;
-  };
   sources?: {
     fileSearch?: FileSearchSource[];
     webSearch?: WebSource[];
@@ -81,11 +99,20 @@ export class LlmService {
   ) { }
 
   async generate(command: LlmGenerateCommand): Promise<LlmGenerateResult> {
+    // デバッグ: サービスレベルでの重複処理検出
+    const serviceRequestId = `svc-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    const stackTrace = new Error().stack?.split('\n').slice(1, 5).join('\n');
+    
     this.logger.log(
-      `Processing LLM generate command: ` +
-        `fileSearch=${command.searchSettings?.enableFileSearch ?? true}, ` +
-        `webSearch=${command.searchSettings?.allowWebSearch ?? false}, ` +
-        `executeWeb=${command.searchSettings?.executeWebSearch ?? false}`,
+      `[${serviceRequestId}] Processing LLM generate command: ` +
+        `webSearch=${command.requireWebSearch} ` +
+        `conversationId=${command.conversationId} ` +
+        `promptLength=${command.prompt.length} ` +
+        `timestamp=${new Date().toISOString()}`,
+    );
+    
+    this.logger.debug(
+      `[${serviceRequestId}] Service stack trace: ${stackTrace}`,
     );
 
     // 会話の所有者を取得
@@ -166,7 +193,7 @@ export class LlmService {
           conversationId: command.conversationId,
           history: [...(history as unknown as Message[]), userMessage],
           systemInstruction,
-          searchSettings: command.searchSettings,
+          requireWebSearch: command.requireWebSearch,
           geminiCacheName: geminiCacheName ?? undefined,
         },
       )) as HybridAnswerResult;
@@ -175,9 +202,6 @@ export class LlmService {
         type: result.type,
         answer: result.answer,
         message: result.message,
-        needsWebSearch: result.needsWebSearch,
-        webSearchReason: result.webSearchReason,
-        confirmationLabels: result.confirmationLabels,
         sources: result.sources,
       };
     } catch (error) {
@@ -275,6 +299,7 @@ export class LlmService {
 あなたは社内新人教育向けの RAG ベース AI アシスタントです。
 
 これから会話するときは、次の「性格プリセット」の仕様に従って振る舞ってください。
+重要: ユーザーの名前がわからない場合は「○○様」「○○さん」のような仮の名前を絶対に使わないでください。
 
 - プリセット ID: ${preset.id}
 - 名前: ${preset.displayName}
