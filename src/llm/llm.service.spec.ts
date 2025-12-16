@@ -6,6 +6,9 @@ import { UserPort, USER_PORT } from '../user/user.port';
 import { ConversationPort, CONVERSATION_PORT } from '../conversation/conversation.port';
 import { PersonalityPresetService } from '../personality-preset/personalityPreset.service';
 import { PersonalityPreset, toPersonalityPresetId } from '../personality-preset/personalityPreset.types';
+import { InMemoryCacheService } from './cache/inMemoryCacheService';
+import { GeminiCacheService } from './cache/geminiCacheService';
+
 // Mock createUUID to avoid uuid import issues in Jest
 jest.mock('../common/uuid', () => ({
     createUUID: jest.fn(() => 'mock-uuid'),
@@ -19,6 +22,8 @@ describe('LlmService', () => {
     let mockUserPort: Partial<UserPort>;
     let mockConversationPort: Partial<ConversationPort>;
     let mockPersonalityPresetService: Partial<PersonalityPresetService>;
+    let mockInMemoryCacheService: Partial<InMemoryCacheService>;
+    let mockGeminiCacheService: Partial<GeminiCacheService>;
     let mockUserService: any;
 
     const mockPreset: PersonalityPreset = {
@@ -38,6 +43,7 @@ describe('LlmService', () => {
         };
         mockFileSearchAssistant = {
             answerQuestion: jest.fn().mockResolvedValue({
+                type: 'ANSWER',
                 answer: 'Test Answer',
                 message: { content: 'Test Answer' },
             }),
@@ -54,6 +60,14 @@ describe('LlmService', () => {
         mockPersonalityPresetService = {
             findById: jest.fn().mockReturnValue(mockPreset),
         };
+        mockInMemoryCacheService = {
+            getOrCreateConversation: jest.fn().mockResolvedValue([]),
+            getOrCreateSystemPrompt: jest.fn().mockImplementation((_, generator) => generator()),
+            appendToConversation: jest.fn(),
+        };
+        mockGeminiCacheService = {
+            getOrCreateSystemPromptCache: jest.fn().mockResolvedValue('test-cache-name'),
+        };
         mockUserService = {
             getUserPersonalityPreset: jest.fn().mockResolvedValue(toPersonalityPresetId('test_preset')),
         };
@@ -69,6 +83,8 @@ describe('LlmService', () => {
                 { provide: USER_PORT, useValue: mockUserPort },
                 { provide: CONVERSATION_PORT, useValue: mockConversationPort },
                 { provide: PersonalityPresetService, useValue: mockPersonalityPresetService },
+                { provide: InMemoryCacheService, useValue: mockInMemoryCacheService },
+                { provide: GeminiCacheService, useValue: mockGeminiCacheService },
             ],
         }).compile();
 
@@ -79,6 +95,7 @@ describe('LlmService', () => {
         const command = {
             prompt: 'Hello',
             conversationId: createUUID(),
+            requireWebSearch: false,
         };
 
         await service.generate(command);
@@ -87,6 +104,7 @@ describe('LlmService', () => {
             'Hello',
             expect.objectContaining({
                 systemInstruction: expect.stringContaining('プリセット ID: test_preset'),
+                requireWebSearch: false,
             }),
         );
         expect(mockFileSearchAssistant.answerQuestion).toHaveBeenCalledWith(
@@ -107,6 +125,7 @@ describe('LlmService', () => {
         const command = {
             prompt: 'Hello',
             conversationId: createUUID(),
+            requireWebSearch: false,
         };
 
         await service.generate(command);
@@ -126,6 +145,7 @@ describe('LlmService', () => {
         const command = {
             prompt: 'Hello',
             conversationId: createUUID(),
+            requireWebSearch: false,
         };
 
         await service.generate(command);
@@ -142,5 +162,61 @@ describe('LlmService', () => {
                 systemInstruction: expect.stringContaining('プリセット ID: test_preset'),
             }),
         );
+    });
+
+    it('should pass requireWebSearch flag to FileSearchAssistant', async () => {
+        const command = {
+            prompt: 'Tell me about the latest AI trends',
+            conversationId: createUUID(),
+            requireWebSearch: true,
+        };
+
+        await service.generate(command);
+
+        expect(mockFileSearchAssistant.answerQuestion).toHaveBeenCalledWith(
+            'Tell me about the latest AI trends',
+            expect.objectContaining({
+                requireWebSearch: true,
+            }),
+        );
+    });
+
+    it('should use relaxed FILE_SEARCH_INSTRUCTION', async () => {
+        const command = {
+            prompt: 'What is TypeScript?',
+            conversationId: createUUID(),
+            requireWebSearch: false,
+        };
+
+        await service.generate(command);
+
+        // 緩和版のFILE_SEARCH_INSTRUCTIONが使われていることを確認
+        expect(mockFileSearchAssistant.answerQuestion).toHaveBeenCalledWith(
+            'What is TypeScript?',
+            expect.objectContaining({
+                systemInstruction: expect.stringContaining('あなたの一般知識を使って有益な回答を提供してください'),
+            }),
+        );
+    });
+
+    it('should use caches correctly', async () => {
+        const command = {
+            prompt: 'Hello',
+            conversationId: createUUID(),
+            requireWebSearch: false,
+        };
+
+        await service.generate(command);
+
+        // キャッシュメソッドが正しく呼ばれているか確認
+        expect(mockInMemoryCacheService.getOrCreateConversation).toHaveBeenCalledWith(
+            command.conversationId.toString(),
+            expect.any(Function),
+        );
+        expect(mockInMemoryCacheService.getOrCreateSystemPrompt).toHaveBeenCalled();
+        expect(mockGeminiCacheService.getOrCreateSystemPromptCache).toHaveBeenCalled();
+        
+        // メッセージがキャッシュに追加されているか確認
+        expect(mockInMemoryCacheService.appendToConversation).toHaveBeenCalledTimes(2); // userMessage + assistantMessage
     });
 });

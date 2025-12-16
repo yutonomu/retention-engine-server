@@ -144,55 +144,69 @@ export class WebSearchAssistant {
       `Executing web search for: "${question.substring(0, 50)}..."`,
     );
 
-    const systemPrompt =
-      options.systemInstruction ||
-      `
-あなたはWeb検索専門のアシスタントです。
-必ずGoogle検索を実行して、最新の情報を取得してから回答してください。
+    // シンプルな指示でWeb検索を強制
+    const searchPrompt = `
+以下についてGoogle検索を使って調べてください：
+${question}
 
-【重要】
-- 必ずWeb検索を実行し、その結果に基づいて回答してください
-- 自分の知識だけで回答せず、必ず検索結果を参照してください
-- 検索結果の出典URLを必ず含めてください
-- 最新の情報を優先してください
+必ずgoogleSearchツールを使用してください。
 `.trim();
-
-    // 검색에 최적화된 질문 형식으로 변환
-    const searchQuery = `以下の質問についてWeb検索を実行し、最新の情報を取得して回答してください。
-
-質問: ${question}
-
-【指示】
-- 必ずGoogle検索を使用して最新情報を取得してください
-- 検索結果のURLや出典を含めてください
-- 2024年以降の最新情報を優先してください`;
 
     const contents = [
       {
         role: 'user' as const,
-        parts: [{ text: systemPrompt }],
-      },
-      {
-        role: 'user' as const,
-        parts: [{ text: searchQuery }],
+        parts: [{ text: searchPrompt }],
       },
     ];
 
-    const response = await this.ai.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents,
-      config: {
-        tools: [{ googleSearch: {} }],
-      },
+    this.logger.log('Gemini APIを呼び出します', {
+      model: 'gemini-2.5-flash',
+      hasTools: true,
+      questionLength: question.length,
     });
 
-    const answer = this.extractText(response);
-    const sources = this.extractWebSources(response);
-    const confidence = this.calculateConfidence(answer, sources);
+    let answer: string;
+    let sources: WebSource[];
+    let confidence: number;
 
-    this.logger.log(
-      `Web search completed: sources=${sources.length} confidence=${confidence.toFixed(2)}`,
-    );
+    try {
+      const response = await this.ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents,
+        config: {
+          tools: [{ 
+            googleSearch: {} 
+          }],
+        },
+      });
+
+      this.logger.log('Gemini APIレスポンスを受信', {
+        hasResponse: !!response,
+        responseType: typeof response,
+      });
+
+      answer = this.extractText(response);
+      sources = this.extractWebSources(response);
+      confidence = this.calculateConfidence(answer, sources);
+
+      this.logger.log(
+        `Web search completed: sources=${sources.length} confidence=${confidence.toFixed(2)} answerLength=${answer.length}`,
+      );
+      
+      if (sources.length === 0) {
+        this.logger.warn('Web検索結果が空です', {
+          question: question.substring(0, 100),
+          answer: answer.substring(0, 100),
+        });
+      }
+    } catch (error) {
+      this.logger.error('Gemini APIエラー', {
+        error: error.message,
+        stack: error.stack,
+        question: question.substring(0, 100),
+      });
+      throw error;
+    }
 
     return { answer, sources, confidence };
   }
@@ -221,7 +235,7 @@ export class WebSearchAssistant {
 
   /**
    * レスポンスからテキスト抽出
-   * 複数のpartsがある場合は全て結合する
+   * 最初の候補の最初のパートのみを使用（重複回答を防ぐため）
    */
   private extractText(response: unknown): string {
     const resp = response as {
@@ -230,26 +244,53 @@ export class WebSearchAssistant {
         content?: {
           parts?: Array<{ text?: string }>;
         };
+        finishReason?: string;
       }>;
     };
 
+    // 簡易的なtext()メソッドがある場合は使用
     if (typeof resp?.text === 'function') {
       return resp.text();
     }
 
-    const textParts: string[] = [];
     const candidates = resp?.candidates || [];
-
-    for (const candidate of candidates) {
-      const parts = candidate?.content?.parts || [];
-      for (const part of parts) {
-        if (part?.text) {
-          textParts.push(part.text);
-        }
-      }
+    
+    // candidatesが複数ある場合の警告
+    if (candidates.length > 1) {
+      this.logger.warn('Multiple candidates found in response', {
+        candidatesCount: candidates.length,
+        finishReasons: candidates.map(c => c.finishReason),
+      });
     }
 
-    return textParts.join('');
+    // 最初の候補のみを使用
+    const firstCandidate = candidates[0];
+    if (!firstCandidate) {
+      return '';
+    }
+
+    const parts = firstCandidate.content?.parts || [];
+    
+    // partsが複数ある場合の警告とログ
+    if (parts.length > 1) {
+      this.logger.warn('Multiple parts found in candidate', {
+        partsCount: parts.length,
+        partLengths: parts.map(p => p.text?.length || 0),
+      });
+      
+      // 各パートの最初の100文字をログ出力
+      parts.forEach((part, index) => {
+        if (part.text) {
+          this.logger.log(`Part ${index} preview:`, {
+            preview: part.text.substring(0, 100),
+            length: part.text.length,
+          });
+        }
+      });
+    }
+
+    // 最初のパートのみを返す（重複を防ぐため）
+    return parts[0]?.text || '';
   }
 
   /**
@@ -267,6 +308,10 @@ export class WebSearchAssistant {
               snippet?: string;
             };
           }>;
+          webSearchQueries?: string[];
+          searchEntryPoint?: {
+            renderedContent?: string;
+          };
         };
       }>;
     };
@@ -279,13 +324,43 @@ export class WebSearchAssistant {
 
       const chunks = groundingMetadata.groundingChunks || [];
 
+      // デバッグログを追加
+      if (chunks.length > 0) {
+        this.logger.log('Grounding chunks found:', {
+          chunksCount: chunks.length,
+          firstChunk: JSON.stringify(chunks[0], null, 2).substring(0, 500),
+        });
+      }
+
       for (const chunk of chunks) {
+        // chunk.webオブジェクト全体をログ出力して構造を確認
         if (chunk.web) {
-          sources.push({
-            title: chunk.web.title || 'Untitled',
-            url: chunk.web.uri || '',
-            snippet: chunk.web.snippet || '',
+          this.logger.log('Web chunk structure:', {
+            hasTitle: !!chunk.web.title,
+            hasUri: !!chunk.web.uri,
+            hasUrl: !!(chunk.web as any).url,
+            webKeys: Object.keys(chunk.web),
+            web: chunk.web,
           });
+          
+          // uri または url フィールドを確認
+          const url = chunk.web.uri || (chunk.web as any).url || '';
+          
+          const webSource = {
+            title: chunk.web.title || 'Untitled',
+            url: url,
+            snippet: chunk.web.snippet || '',
+          };
+          
+          // URLが正しく設定されているか確認
+          if (!webSource.url) {
+            this.logger.warn('Web source URL is empty after extraction', {
+              web: chunk.web,
+              extractedUrl: url,
+            });
+          }
+          
+          sources.push(webSource);
         }
       }
     }

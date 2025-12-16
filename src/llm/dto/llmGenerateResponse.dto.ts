@@ -6,7 +6,6 @@
 
 export enum ResponseType {
   ANSWER = 'ANSWER',
-  WEB_SEARCH_CONFIRMATION = 'WEB_SEARCH_CONFIRMATION',
 }
 
 export type WebSource = {
@@ -46,21 +45,8 @@ export type ResponseSources = {
   webSearch?: WebSource[];
 };
 
-// Web検索確認ボタンラベル
-export type WebSearchConfirmationLabels = {
-  confirm: string; // "はい" / "예" / "Yes"
-  cancel: string; // "いいえ" / "아니오" / "No"
-};
-
 export type LlmGenerateResponseDto = {
   type: ResponseType;
   answer: string;
-
-  // Web検索確認リクエスト時
-  needsWebSearch?: boolean;
-  webSearchReason?: string;
-  confirmationLabels?: WebSearchConfirmationLabels;
-
-  // 回答ソース
-  sources?: ResponseSources;
+  sources?: ResponseSources; // 回答ソース（fileSearch, webSearch）
 };

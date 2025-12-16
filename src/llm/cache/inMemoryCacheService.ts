@@ -66,6 +66,7 @@ export class InMemoryCacheService {
   // キャッシュストレージ
   private readonly systemPromptCache = new Map<string, CacheEntry<string>>();
   private readonly conversationCache = new Map<string, CacheEntry<unknown[]>>();
+  private readonly webSearchCache = new Map<string, CacheEntry<unknown>>();
 
   // Mutex Lock
   private readonly mutex = new MutexLock();
@@ -74,6 +75,7 @@ export class InMemoryCacheService {
   private readonly TTL = {
     SYSTEM_PROMPT: 60 * 60 * 1000, // 1時間
     CONVERSATION: 30 * 60 * 1000, // 30分
+    WEB_SEARCH: 30 * 60 * 1000, // 30分（Web検索結果）
   };
 
   // キャッシュクリーンアップ周期 (5分ごと)
@@ -216,17 +218,63 @@ export class InMemoryCacheService {
   }
 
   /**
+   * Web検索キャッシュ取得/作成
+   * 同一質問＋RAG回答の組み合わせで30分間キャッシュ
+   */
+  async getOrCreateWebSearch<T>(
+    cacheKey: string,
+    generator: () => Promise<T>,
+  ): Promise<T> {
+    // キャッシュヒット確認
+    const cached = this.webSearchCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      this.logger.debug(`Web search cache HIT for key=${cacheKey}`);
+      return cached.value as T;
+    }
+
+    // キャッシュミス - Mutex Lock
+    const release = await this.mutex.acquire(cacheKey);
+
+    try {
+      // Double-check
+      const rechecked = this.webSearchCache.get(cacheKey);
+      if (rechecked && rechecked.expiresAt > Date.now()) {
+        this.logger.debug(`Web search cache HIT after lock for key=${cacheKey}`);
+        return rechecked.value as T;
+      }
+
+      // 新規生成
+      this.logger.log(`Web search cache MISS for key=${cacheKey}, generating...`);
+      const value = await generator();
+
+      // キャッシュに保存
+      this.webSearchCache.set(cacheKey, {
+        value,
+        expiresAt: Date.now() + this.TTL.WEB_SEARCH,
+        createdAt: Date.now(),
+      });
+
+      this.logger.log(`Web search cached for key=${cacheKey}, TTL=${this.TTL.WEB_SEARCH}ms`);
+      return value;
+    } finally {
+      release();
+    }
+  }
+
+  /**
    * 全体キャッシュ統計
    */
   getStats(): {
     systemPromptCount: number;
     conversationCount: number;
+    webSearchCount: number;
     totalEntries: number;
   } {
     return {
       systemPromptCount: this.systemPromptCache.size,
       conversationCount: this.conversationCache.size,
-      totalEntries: this.systemPromptCache.size + this.conversationCache.size,
+      webSearchCount: this.webSearchCache.size,
+      totalEntries: this.systemPromptCache.size + this.conversationCache.size + this.webSearchCache.size,
     };
   }
 
@@ -249,6 +297,14 @@ export class InMemoryCacheService {
     for (const [key, entry] of this.conversationCache.entries()) {
       if (entry.expiresAt <= now) {
         this.conversationCache.delete(key);
+        cleanedCount++;
+      }
+    }
+
+    // Web検索キャッシュクリーンアップ
+    for (const [key, entry] of this.webSearchCache.entries()) {
+      if (entry.expiresAt <= now) {
+        this.webSearchCache.delete(key);
         cleanedCount++;
       }
     }
