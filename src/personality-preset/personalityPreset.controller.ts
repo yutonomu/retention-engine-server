@@ -14,6 +14,8 @@ export class PersonalityPresetController {
         const presets = allPresets.map(preset => ({
             id: preset.id,
             displayName: preset.displayName,
+            description: preset.description,
+            sampleDialogue: preset.sampleDialogue,
         }));
         return { presets };
     }

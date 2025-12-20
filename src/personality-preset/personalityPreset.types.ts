@@ -24,6 +24,7 @@ export interface PersonalityPresetProps {
     strictness: Strictness;
     proactivity: Proactivity;
     systemPromptCore: string;
+    sampleDialogue: string;
 }
 
 export class PersonalityPreset {
@@ -35,6 +36,7 @@ export class PersonalityPreset {
     readonly strictness: Strictness;
     readonly proactivity: Proactivity;
     readonly systemPromptCore: string;
+    readonly sampleDialogue: string;
 
     constructor(raw: PersonalityPresetProps) {
         this.id = raw.id;
@@ -45,6 +47,7 @@ export class PersonalityPreset {
         this.strictness = raw.strictness;
         this.proactivity = raw.proactivity;
         this.systemPromptCore = raw.systemPromptCore;
+        this.sampleDialogue = raw.sampleDialogue;
     }
 
     static create(raw: PersonalityPresetProps): PersonalityPreset {
