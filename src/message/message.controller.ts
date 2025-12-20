@@ -7,6 +7,12 @@ interface MessageListResponse {
   data: Message[];
 }
 
+interface PaginatedMessageResponse {
+  data: Message[];
+  hasMore: boolean;
+  nextCursor?: string;
+}
+
 interface CreateMessageRequest {
   convId: string;
   role: Message['role'];
@@ -30,6 +36,24 @@ export class MessageController {
       convId ?? '',
     );
     return { data: items };
+  }
+
+  @Get('paginated')
+  async getMessagesPaginated(
+    @Query('convId') convId?: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limitStr?: string,
+  ): Promise<PaginatedMessageResponse> {
+    const limit = limitStr ? parseInt(limitStr, 10) : undefined;
+    const result = await this.messageService.getMessagesByConversationPaginated(
+      convId ?? '',
+      { cursor, limit },
+    );
+    return {
+      data: result.items,
+      hasMore: result.hasMore,
+      nextCursor: result.nextCursor,
+    };
   }
 
   @Get('mentor')
