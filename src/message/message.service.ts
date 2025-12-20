@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { MessagePort } from './message.port';
+import type { MessagePort, PaginatedMessages } from './message.port';
 import { MESSAGE_PORT } from './message.port';
 import type { ConversationPort } from '../conversation/conversation.port';
 import { CONVERSATION_PORT } from '../conversation/conversation.port';
@@ -33,6 +33,20 @@ export class MessageService {
       throw new NotFoundException(`Conversation ${convId} not found`);
     }
     return this.messageRepository.findAllByConversation(convId);
+  }
+
+  async getMessagesByConversationPaginated(
+    convId: string,
+    options: { cursor?: string; limit?: number },
+  ): Promise<PaginatedMessages> {
+    if (!convId?.trim()) {
+      throw new BadRequestException('convId is required');
+    }
+    const conversation = await this.conversationRepository.findById(convId);
+    if (!conversation) {
+      throw new NotFoundException(`Conversation ${convId} not found`);
+    }
+    return this.messageRepository.findByConversationPaginated(convId, options);
   }
 
   async createMessage(input: {

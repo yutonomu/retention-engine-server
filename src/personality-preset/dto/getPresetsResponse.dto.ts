@@ -3,6 +3,8 @@ import { z } from 'zod';
 export const PresetSummarySchema = z.object({
     id: z.string(),
     displayName: z.string(),
+    description: z.string(),
+    sampleDialogue: z.string(),
 });
 
 export type PresetSummaryDto = z.infer<typeof PresetSummarySchema>;
