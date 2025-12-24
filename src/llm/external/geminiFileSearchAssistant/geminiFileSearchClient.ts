@@ -139,7 +139,7 @@ export class GeminiFileSearchClient {
 
     // Retryロジック適用
     const response = await this.executeWithRetry(async () => {
-      const requestConfig: any = {
+      return this.ai.models.generateContent({
         model: 'gemini-2.5-pro',
         contents,
         config: {
@@ -151,14 +151,7 @@ export class GeminiFileSearchClient {
             },
           ],
         },
-      };
-      
-      // systemInstructionが提供されている場合は追加
-      if (options.systemInstruction) {
-        requestConfig.config.systemInstruction = options.systemInstruction;
-      }
-      
-      return this.ai.models.generateContent(requestConfig);
+      });
     });
 
     this.logCitedChunks(response);
