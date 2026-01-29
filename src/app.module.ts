@@ -12,6 +12,7 @@ import { SupabaseModule } from './supabase/supabase.module';
 import { AuthModule } from './auth/auth.module';
 import { PersonalityPresetModule } from './personality-preset/personalityPreset.module';
 import { AvatarModule } from './avatar/avatar.module';
+import { KnowledgeModule } from './knowledge/knowledge.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { AvatarModule } from './avatar/avatar.module';
     MessageModule,
     PersonalityPresetModule,
     AvatarModule,
+    KnowledgeModule,
   ],
   controllers: [AppController],
   providers: [AppService],

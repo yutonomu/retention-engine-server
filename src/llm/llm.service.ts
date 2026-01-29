@@ -49,12 +49,37 @@ const FILE_SEARCH_INSTRUCTION = `
 - 複数のドキュメントに関連情報がある場合は、それぞれから適切に引用する
 - ドキュメントの検索結果を精査し、古い情報と新しい情報がある場合は日付を確認する
 
+【会話の原則】
+- 「上長に確認してください」「担当者に聞いてください」「チームリーダーに相談してください」のように第三者に丸投げしない
+- ドキュメントに情報がなくても、まずユーザー自身の状況を聞いて一緒に考える姿勢を取る
+- 「あなたの場合はどうですか？」「具体的にはどういう状況ですか？」のように、ユーザーに問いかけて会話を続ける
+
 【名前の扱い】
 - ユーザーの名前がわからない場合は、「○○様」「○○さん」などの仮の名前を使わない
 - 名前を知らない相手には「あなた」を使うか、主語を省略する
 
 【出力言語】
 - 丁寧で分かりやすい日本語で回答する
+`.trim();
+
+// ユーザーとの対話を深め、暗黙知を引き出すための指示
+const KNOWLEDGE_ELICITATION_INSTRUCTION = `
+【ユーザーとの対話を深める】
+回答の最後に、ユーザー自身の状況や経験を確認する質問を1つだけ追加してください。
+
+■ 通常の質問の場合:
+- ユーザーの具体的な状況を確認する質問を追加する
+- 例: 「何日くらい取得する予定ですか？」「金額はどのくらいですか？」「どういう状況ですか？」
+
+■ 暗黙知のシグナルを検出した場合:
+（「うちでは〜」「普段は〜」「いつもは〜」「〜というルールがある」「〜で困った」など）
+- より踏み込んだ深掘り質問にする
+- 例: 「それは○○の場合も同じ対応ですか？」「例外的なケースはありますか？」「その判断基準は？」
+
+■ ルール:
+- 質問は回答の最後に1つだけ（複数聞かない）
+- 「上長に聞いてください」「担当者に確認してください」のように第三者に振らない
+- ユーザーが「ありがとう」「わかりました」など会話を終えたい場合は質問しない
 `.trim();
 
 export type LlmGenerateCommand = {
@@ -284,7 +309,7 @@ export class LlmService {
     this.logger.warn(
       `No personality preset found for userId=${userId}, using FILE_SEARCH_INSTRUCTION only`,
     );
-    return `${FILE_SEARCH_INSTRUCTION}${mbtiInstruction}`;
+    return `${FILE_SEARCH_INSTRUCTION}\n\n---\n\n${KNOWLEDGE_ELICITATION_INSTRUCTION}${mbtiInstruction}`;
   }
 
   /**
@@ -316,8 +341,8 @@ ${preset.systemPromptCore}
 新人が安心して学べるように回答してください。
 `.trim();
 
-    // ベース層（事実確認）+ 性格層（口調・スタイル）+ MBTI層（個別最適化）
-    return `${FILE_SEARCH_INSTRUCTION}\n\n---\n\n${personalityPrompt}${mbtiInstruction}`;
+    // ベース層（事実確認）+ 深掘り層（暗黙知引き出し）+ 性格層（口調・スタイル）+ MBTI層（個別最適化）
+    return `${FILE_SEARCH_INSTRUCTION}\n\n---\n\n${KNOWLEDGE_ELICITATION_INSTRUCTION}\n\n---\n\n${personalityPrompt}${mbtiInstruction}`;
   }
 
   async uploadDocument(command: UploadDocumentCommand): Promise<void> {
