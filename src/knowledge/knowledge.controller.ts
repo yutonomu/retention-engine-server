@@ -1,28 +1,28 @@
 import {
-  Body,
   Controller,
+  Post,
   Get,
   Patch,
-  Post,
+  Body,
   Param,
   Query,
   Req,
   UseGuards,
-  BadRequestException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { KnowledgeService } from './knowledge.service';
-import type { ExtractKnowledgeDto } from './dto/extractKnowledge.dto';
-import type { SaveKnowledgeDto } from './dto/saveKnowledge.dto';
-import type { UpdateKnowledgeDto } from './dto/updateKnowledge.dto';
-import type { ExtractKnowledgePreviewResponse, SaveKnowledgeResponse } from './dto/knowledgeResponse.dto';
-import type { KnowledgeListResult } from './knowledge.port';
+import type { DetectTacitKnowledgeRequest } from './dto/detectTacitKnowledge.dto';
+import type { SaveKnowledgeCardRequest } from './dto/saveKnowledgeCard.dto';
+import type { KnowledgeCardQueryDto } from './dto/knowledgeCardQuery.dto';
+import type {
+  DetectTacitKnowledgeResponse,
+  SaveKnowledgeCardResponse,
+  KCListItemResponse,
+  KCDetailResponse,
+} from './dto/knowledgeCardResponse.dto';
 
 interface AuthenticatedRequest {
-  user: {
-    sub: string; // userId
-    role?: string;
-  };
+  user: { sub: string };
 }
 
 @Controller('knowledge')
@@ -31,89 +31,169 @@ export class KnowledgeController {
   constructor(private readonly knowledgeService: KnowledgeService) {}
 
   /**
-   * POST /knowledge/extract
-   * チャット履歴から暗黙知を抽出（プレビューのみ、保存しない）
+   * POST /knowledge/detect-tacit
+   * 暗黙知を検出（プレビュー）
    */
-  @Post('extract')
-  async extractKnowledge(
-    @Body() body: ExtractKnowledgeDto,
+  @Post('detect-tacit')
+  async detectTacitKnowledge(
+    @Body() body: DetectTacitKnowledgeRequest,
     @Req() req: AuthenticatedRequest,
-  ): Promise<ExtractKnowledgePreviewResponse> {
-    if (!body.conversationId) {
-      throw new BadRequestException('conversationId is required');
-    }
-
-    const userId = req.user.sub;
-    if (!userId) {
-      throw new BadRequestException('User ID not found in token');
-    }
-
-    return this.knowledgeService.extractKnowledgePreview({
+  ): Promise<DetectTacitKnowledgeResponse> {
+    const candidates = await this.knowledgeService.detectTacitKnowledge({
       conversationId: body.conversationId,
-      range: body.range ?? 'all',
-      userId,
+      startIndex: body.startIndex,
+      range: body.range,
     });
+
+    return { candidates };
   }
 
   /**
-   * POST /knowledge/save
-   * ユーザーが選択した候補を保存
+   * POST /knowledge/cards
+   * KC保存
    */
-  @Post('save')
-  async saveKnowledge(
-    @Body() body: SaveKnowledgeDto,
+  @Post('cards')
+  async saveKnowledgeCard(
+    @Body() body: SaveKnowledgeCardRequest,
     @Req() req: AuthenticatedRequest,
-  ): Promise<SaveKnowledgeResponse> {
-    if (!body.conversationId) {
-      throw new BadRequestException('conversationId is required');
-    }
-    if (!body.items || body.items.length === 0) {
-      throw new BadRequestException('items must contain at least one item');
-    }
+  ): Promise<SaveKnowledgeCardResponse> {
+    const card = await this.knowledgeService.saveKnowledgeCard(
+      {
+        conversationId: body.conversationId,
+        candidate: body.candidate,
+      },
+      req.user.sub,
+    );
 
-    const userId = req.user.sub;
-    if (!userId) {
-      throw new BadRequestException('User ID not found in token');
-    }
-
-    return this.knowledgeService.saveKnowledgeItems({
-      conversationId: body.conversationId,
-      items: body.items,
-      userId,
-    });
+    return {
+      id: card.id,
+      title: card.title,
+      status: card.status,
+      createdAt: card.created_at,
+    };
   }
 
   /**
-   * PATCH /knowledge/:id
-   * ナレッジのカテゴリを更新
+   * GET /knowledge/cards
+   * KC一覧
    */
-  @Patch(':id')
-  async updateKnowledge(
+  @Get('cards')
+  async listKnowledgeCards(
+    @Query() query: KnowledgeCardQueryDto,
+  ): Promise<{ items: KCListItemResponse[]; total: number }> {
+    const result = await this.knowledgeService.listKnowledgeCards({
+      status: query.status,
+      sourceType: query.sourceType,
+      search: query.search,
+      tags: query.tags ? query.tags.split(',') : undefined,
+      limit: query.limit ? Number(query.limit) : undefined,
+      offset: query.offset ? Number(query.offset) : undefined,
+    });
+
+    return {
+      items: result.items.map((kc) => ({
+        id: kc.id,
+        title: kc.title,
+        content: kc.content,
+        sourceType: kc.source_type,
+        status: kc.status,
+        tags: kc.tags,
+        confidence: kc.confidence,
+        createdAt: kc.created_at,
+        viewCount: kc.view_count,
+        usefulCount: kc.useful_count,
+      })),
+      total: result.total,
+    };
+  }
+
+  /**
+   * GET /knowledge/cards/:id
+   * KC詳細
+   */
+  @Get('cards/:id')
+  async getKnowledgeCard(
     @Param('id') id: string,
-    @Body() body: UpdateKnowledgeDto,
-  ): Promise<{ id: string; category: string }> {
-    if (!body.category) {
-      throw new BadRequestException('category is required');
-    }
-    return this.knowledgeService.updateKnowledge(id, { category: body.category });
+  ): Promise<KCDetailResponse> {
+    const kc = await this.knowledgeService.getKnowledgeCard(id);
+
+    return {
+      id: kc.id,
+      title: kc.title,
+      content: kc.content,
+      sourceType: kc.source_type,
+      status: kc.status,
+      creatorId: kc.creator_id,
+      verifierId: kc.verifier_id,
+      tags: kc.tags,
+      confidence: kc.confidence,
+      sourceConversationId: kc.source_conversation_id,
+      sourceMessageRange: kc.source_message_range,
+      createdAt: kc.created_at,
+      verifiedAt: kc.verified_at,
+      viewCount: kc.view_count,
+      usefulCount: kc.useful_count,
+    };
   }
 
   /**
-   * GET /knowledge
-   * 抽出済みナレッジ一覧を取得（フィルタ・ページネーション対応）
+   * PATCH /knowledge/cards/:id
+   * KC編集
    */
-  @Get()
-  async listKnowledge(
-    @Query('category') category?: string,
-    @Query('search') search?: string,
-    @Query('limit') limit?: string,
-    @Query('offset') offset?: string,
-  ): Promise<KnowledgeListResult> {
-    return this.knowledgeService.listKnowledge({
-      category: category || undefined,
-      search: search || undefined,
-      limit: limit ? parseInt(limit, 10) : 20,
-      offset: offset ? parseInt(offset, 10) : 0,
-    });
+  @Patch('cards/:id')
+  async updateKnowledgeCard(
+    @Param('id') id: string,
+    @Body() body: {
+      title?: string;
+      situation?: string;
+      knowhow?: string;
+      precaution?: string;
+      tags?: string[];
+      status?: string;
+    },
+    @Req() req: AuthenticatedRequest,
+  ): Promise<KCDetailResponse> {
+    const kc = await this.knowledgeService.updateKnowledgeCard(
+      id,
+      {
+        title: body.title,
+        situation: body.situation,
+        knowhow: body.knowhow,
+        precaution: body.precaution,
+        tags: body.tags,
+        status: body.status as 'draft' | 'verified' | 'official' | undefined,
+      },
+      req.user.sub,
+    );
+
+    return {
+      id: kc.id,
+      title: kc.title,
+      content: kc.content,
+      sourceType: kc.source_type,
+      status: kc.status,
+      creatorId: kc.creator_id,
+      verifierId: kc.verifier_id,
+      tags: kc.tags,
+      confidence: kc.confidence,
+      sourceConversationId: kc.source_conversation_id,
+      sourceMessageRange: kc.source_message_range,
+      createdAt: kc.created_at,
+      verifiedAt: kc.verified_at,
+      viewCount: kc.view_count,
+      usefulCount: kc.useful_count,
+    };
+  }
+
+  /**
+   * POST /knowledge/cards/:id/useful
+   * 役立ったカウント
+   */
+  @Post('cards/:id/useful')
+  async markUseful(
+    @Param('id') id: string,
+  ): Promise<{ success: boolean }> {
+    await this.knowledgeService.markUseful(id);
+    return { success: true };
   }
 }

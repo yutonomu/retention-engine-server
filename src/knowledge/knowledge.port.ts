@@ -1,51 +1,59 @@
-import type { ExtractedKnowledge, SimilarKnowledge } from './knowledge.types';
+import type { KnowledgeCard, KCStatus, KCSourceType, SimilarKC } from './knowledge.types';
 
 export const KNOWLEDGE_PORT = Symbol('KNOWLEDGE_PORT');
 
-export interface KnowledgeListQuery {
-  category?: string;
+export interface KCListQuery {
+  status?: KCStatus;
+  sourceType?: KCSourceType;
+  creatorId?: string;
+  tags?: string[];
   search?: string;
   limit?: number;
   offset?: number;
 }
 
-export interface KnowledgeListResult {
-  items: ExtractedKnowledge[];
+export interface KCListResult {
+  items: KnowledgeCard[];
   total: number;
 }
 
 export interface KnowledgePort {
   /**
-   * 抽出された知識を保存
+   * ナレッジカードを保存
    */
-  save(knowledge: Omit<ExtractedKnowledge, 'id' | 'created_at'>): Promise<ExtractedKnowledge>;
+  create(kc: Omit<KnowledgeCard, 'id' | 'created_at' | 'verified_at' | 'view_count' | 'useful_count'>): Promise<KnowledgeCard>;
+
+  /**
+   * IDで取得
+   */
+  findById(id: string): Promise<KnowledgeCard | null>;
+
+  /**
+   * 一覧取得（フィルタ・ページネーション対応）
+   */
+  findAll(query: KCListQuery): Promise<KCListResult>;
+
+  /**
+   * 更新（内容・ステータス変更）
+   */
+  update(id: string, data: Partial<Pick<KnowledgeCard, 'title' | 'content' | 'status' | 'tags' | 'embedding' | 'verifier_id' | 'verified_at'>>): Promise<KnowledgeCard>;
 
   /**
    * ベクトル類似検索で重複候補を検索
    */
-  findSimilar(
+  searchSimilar(
     embedding: number[],
     threshold?: number,
     limit?: number,
-  ): Promise<SimilarKnowledge[]>;
+  ): Promise<SimilarKC[]>;
 
   /**
-   * IDで知識を取得
+   * 閲覧数をインクリメント
    */
-  findById(id: string): Promise<ExtractedKnowledge | null>;
+  incrementViewCount(id: string): Promise<void>;
 
   /**
-   * 会話IDで知識を取得
+   * 「役に立った」カウントをインクリメント
    */
-  findByConversationId(conversationId: string): Promise<ExtractedKnowledge[]>;
-
-  /**
-   * 全知識を取得（フィルタ・ページネーション対応）
-   */
-  findAll(query: KnowledgeListQuery): Promise<KnowledgeListResult>;
-
-  /**
-   * 知識を更新（カテゴリ変更など）
-   */
-  update(id: string, data: { category?: string }): Promise<ExtractedKnowledge>;
+  incrementUsefulCount(id: string): Promise<void>;
 }

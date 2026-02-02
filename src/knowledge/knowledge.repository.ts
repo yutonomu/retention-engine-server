@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import type { KnowledgePort, KnowledgeListQuery, KnowledgeListResult } from './knowledge.port';
-import type { ExtractedKnowledge, SimilarKnowledge } from './knowledge.types';
+import type { KnowledgePort, KCListQuery, KCListResult } from './knowledge.port';
+import type { KnowledgeCard, SimilarKC } from './knowledge.types';
 import type { SupabaseAdminClient } from '../supabase/adminClient';
 
 const DEFAULT_SIMILARITY_THRESHOLD = 0.85;
@@ -16,132 +16,90 @@ export class KnowledgeRepository implements KnowledgePort {
     private readonly supabase: SupabaseAdminClient,
   ) {}
 
-  async save(
-    knowledge: Omit<ExtractedKnowledge, 'id' | 'created_at'>,
-  ): Promise<ExtractedKnowledge> {
+  async create(
+    kc: Omit<KnowledgeCard, 'id' | 'created_at' | 'verified_at' | 'view_count' | 'useful_count'>,
+  ): Promise<KnowledgeCard> {
     const id = randomUUID();
 
     // embedding を文字列形式に変換（pgvector用）
-    const embeddingStr = knowledge.embedding
-      ? `[${knowledge.embedding.join(',')}]`
+    const embeddingStr = kc.embedding
+      ? `[${kc.embedding.join(',')}]`
       : null;
 
     const { data, error } = await this.supabase
-      .from('extracted_knowledge')
+      .from('knowledge_cards')
       .insert({
         id,
-        content: knowledge.content,
-        category: knowledge.category,
-        tags: knowledge.tags,
-        source_conversation_id: knowledge.source_conversation_id,
-        source_message_range: knowledge.source_message_range,
-        extracted_by: knowledge.extracted_by,
+        title: kc.title,
+        content: kc.content,
+        source_type: kc.source_type,
+        status: kc.status,
+        creator_id: kc.creator_id,
+        verifier_id: kc.verifier_id,
+        project_id: kc.project_id,
+        tags: kc.tags,
+        confidence: kc.confidence,
+        source_conversation_id: kc.source_conversation_id,
+        source_message_range: kc.source_message_range,
         embedding: embeddingStr,
       })
       .select()
       .single();
 
     if (error) {
-      this.logger.error(`Failed to save knowledge: ${error.message}`);
+      this.logger.error(`Failed to create knowledge card: ${error.message}`);
       throw error;
     }
 
-    return data as unknown as ExtractedKnowledge;
+    return data as unknown as KnowledgeCard;
   }
 
-  async findSimilar(
-    embedding: number[],
-    threshold: number = DEFAULT_SIMILARITY_THRESHOLD,
-    limit: number = DEFAULT_SIMILAR_LIMIT,
-  ): Promise<SimilarKnowledge[]> {
-    // pgvector のコサイン類似度検索を使用
-    const embeddingStr = `[${embedding.join(',')}]`;
-
-    const { data, error } = await this.supabase.rpc('search_similar_knowledge', {
-      query_embedding: embeddingStr,
-      similarity_threshold: threshold,
-      match_count: limit,
-    });
-
-    if (error) {
-      this.logger.error(`Failed to search similar knowledge: ${error.message}`);
-      // エラー時は空配列を返す（重複チェックをスキップ）
-      return [];
-    }
-
-    return (data ?? []) as SimilarKnowledge[];
-  }
-
-  async findById(id: string): Promise<ExtractedKnowledge | null> {
+  async findById(id: string): Promise<KnowledgeCard | null> {
     const { data, error } = await this.supabase
-      .from('extracted_knowledge')
+      .from('knowledge_cards')
       .select()
       .eq('id', id)
       .single();
 
     if (error) {
       if (error.code === 'PGRST116') {
-        // Not found
         return null;
       }
       throw error;
     }
 
-    return data as unknown as ExtractedKnowledge;
+    return data as unknown as KnowledgeCard;
   }
 
-  async findByConversationId(conversationId: string): Promise<ExtractedKnowledge[]> {
-    const { data, error } = await this.supabase
-      .from('extracted_knowledge')
-      .select()
-      .eq('source_conversation_id', conversationId)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      throw error;
-    }
-
-    return (data ?? []) as unknown as ExtractedKnowledge[];
-  }
-
-  async update(
-    id: string,
-    data: { category?: string },
-  ): Promise<ExtractedKnowledge> {
-    const updateData: Record<string, unknown> = {};
-    if (data.category !== undefined) {
-      updateData.category = data.category;
-    }
-
-    const { data: updated, error } = await this.supabase
-      .from('extracted_knowledge')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) {
-      this.logger.error(`Failed to update knowledge: ${error.message}`);
-      throw error;
-    }
-
-    return updated as unknown as ExtractedKnowledge;
-  }
-
-  async findAll(query: KnowledgeListQuery): Promise<KnowledgeListResult> {
+  async findAll(query: KCListQuery): Promise<KCListResult> {
     const limit = query.limit ?? 20;
     const offset = query.offset ?? 0;
 
     let qb = this.supabase
-      .from('extracted_knowledge')
-      .select('id, content, category, tags, extracted_by, created_at', { count: 'exact' });
+      .from('knowledge_cards')
+      .select(
+        'id, title, content, source_type, status, creator_id, tags, confidence, created_at, view_count, useful_count',
+        { count: 'exact' },
+      );
 
-    if (query.category) {
-      qb = qb.eq('category', query.category);
+    if (query.status) {
+      qb = qb.eq('status', query.status);
+    }
+
+    if (query.sourceType) {
+      qb = qb.eq('source_type', query.sourceType);
+    }
+
+    if (query.creatorId) {
+      qb = qb.eq('creator_id', query.creatorId);
+    }
+
+    if (query.tags && query.tags.length > 0) {
+      qb = qb.overlaps('tags', query.tags);
     }
 
     if (query.search) {
-      qb = qb.ilike('content', `%${query.search}%`);
+      qb = qb.or(`title.ilike.%${query.search}%,content.ilike.%${query.search}%`);
     }
 
     qb = qb.order('created_at', { ascending: false });
@@ -150,13 +108,88 @@ export class KnowledgeRepository implements KnowledgePort {
     const { data, error, count } = await qb;
 
     if (error) {
-      this.logger.error(`Failed to list knowledge: ${error.message}`);
+      this.logger.error(`Failed to list knowledge cards: ${error.message}`);
       throw error;
     }
 
     return {
-      items: (data ?? []) as unknown as ExtractedKnowledge[],
+      items: (data ?? []) as unknown as KnowledgeCard[],
       total: count ?? 0,
     };
+  }
+
+  async update(
+    id: string,
+    data: Partial<Pick<KnowledgeCard, 'title' | 'content' | 'status' | 'tags' | 'embedding' | 'verifier_id' | 'verified_at'>>,
+  ): Promise<KnowledgeCard> {
+    const updateData: Record<string, unknown> = {};
+
+    if (data.title !== undefined) updateData.title = data.title;
+    if (data.content !== undefined) updateData.content = data.content;
+    if (data.status !== undefined) updateData.status = data.status;
+    if (data.tags !== undefined) updateData.tags = data.tags;
+    if (data.verifier_id !== undefined) updateData.verifier_id = data.verifier_id;
+    if (data.verified_at !== undefined) updateData.verified_at = data.verified_at;
+
+    if (data.embedding !== undefined) {
+      updateData.embedding = data.embedding
+        ? `[${data.embedding.join(',')}]`
+        : null;
+    }
+
+    const { data: updated, error } = await this.supabase
+      .from('knowledge_cards')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      this.logger.error(`Failed to update knowledge card: ${error.message}`);
+      throw error;
+    }
+
+    return updated as unknown as KnowledgeCard;
+  }
+
+  async searchSimilar(
+    embedding: number[],
+    threshold: number = DEFAULT_SIMILARITY_THRESHOLD,
+    limit: number = DEFAULT_SIMILAR_LIMIT,
+  ): Promise<SimilarKC[]> {
+    const embeddingStr = `[${embedding.join(',')}]`;
+
+    const { data, error } = await this.supabase.rpc('search_similar_knowledge_cards', {
+      query_embedding: embeddingStr,
+      similarity_threshold: threshold,
+      match_count: limit,
+    });
+
+    if (error) {
+      this.logger.error(`Failed to search similar knowledge cards: ${error.message}`);
+      return [];
+    }
+
+    return (data ?? []) as SimilarKC[];
+  }
+
+  async incrementViewCount(id: string): Promise<void> {
+    const { error } = await this.supabase.rpc('increment_kc_view_count', {
+      row_id: id,
+    });
+
+    if (error) {
+      this.logger.warn(`Failed to increment view_count for ${id}: ${error.message}`);
+    }
+  }
+
+  async incrementUsefulCount(id: string): Promise<void> {
+    const { error } = await this.supabase.rpc('increment_kc_useful_count', {
+      row_id: id,
+    });
+
+    if (error) {
+      this.logger.warn(`Failed to increment useful_count for ${id}: ${error.message}`);
+    }
   }
 }
