@@ -1,7 +1,7 @@
 import type { UUID } from '../common/uuid';
 
 // TODO:Entity/User.tsに移動する
-export type UserRole = 'NEW_HIRE' | 'ASSISTANT';
+export type UserRole = 'NEW_HIRE' | 'MENTOR' | 'ASSISTANT';
 
 export interface Message {
   messageId: UUID;

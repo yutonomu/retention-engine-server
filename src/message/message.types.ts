@@ -1,4 +1,4 @@
-export type MessageRole = 'NEW_HIRE' | 'ASSISTANT';
+export type MessageRole = 'NEW_HIRE' | 'MENTOR' | 'ASSISTANT';
 
 export interface Message {
   msg_id: string;

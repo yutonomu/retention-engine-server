@@ -1,6 +1,6 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { Conversation, ConversationState } from '../conversation.types';
+import { Conversation, ConversationState, ConversationType } from '../conversation.types';
 import type { ConversationPort } from '../conversation.port';
 import type { SupabaseAdminClient } from '../../supabase/adminClient';
 
@@ -11,8 +11,7 @@ export class ConversationRepository implements ConversationPort {
     private readonly supabase: SupabaseAdminClient,
   ) {}
 
-  async create(ownerId: string, title: string): Promise<Conversation> {
-    // owner_id 필수 검증
+  async create(ownerId: string, title: string, type?: ConversationType): Promise<Conversation> {
     if (!ownerId?.trim()) {
       throw new Error('owner_id is required to create a conversation');
     }
@@ -25,6 +24,7 @@ export class ConversationRepository implements ConversationPort {
         conv_id: convId,
         owner_id: ownerId,
         title,
+        type: type ?? 'student_chat',
         state: 'ACTIVE',
         created_at: now,
         last_active_at: now,
@@ -46,6 +46,20 @@ export class ConversationRepository implements ConversationPort {
       .order('conv_id', { ascending: false });
     if (error || !data) {
       throw error ?? new Error('Failed to fetch conversations by owner.');
+    }
+    return data as unknown as Conversation[];
+  }
+
+  async findByOwnerAndType(ownerId: string, type: ConversationType): Promise<Conversation[]> {
+    const { data, error } = await this.supabase
+      .from('conversation')
+      .select()
+      .eq('owner_id', ownerId)
+      .eq('type', type)
+      .order('last_active_at', { ascending: false })
+      .order('conv_id', { ascending: false });
+    if (error || !data) {
+      throw error ?? new Error('Failed to fetch conversations by owner and type.');
     }
     return data as unknown as Conversation[];
   }

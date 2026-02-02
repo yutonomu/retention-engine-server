@@ -7,6 +7,7 @@ import {
 import {
   GetActiveConversationListForMentorReturn,
   GetConversationListByNewHireReturn,
+  GetMentorAiConversationListReturn,
 } from './conversation.types';
 import { Inject } from '@nestjs/common';
 import type { ConversationPort } from './conversation.port';
@@ -131,6 +132,118 @@ export class ConversationService {
 
     await this.conversationRepository.deleteById(convId);
   }
+
+  // ── Mentor AI Chat (멘토 본인의 AI 대화) ──
+
+  async getMentorAiConversationList(
+    mentorId: string,
+  ): Promise<GetMentorAiConversationListReturn[]> {
+    if (!mentorId?.trim()) {
+      throw new BadRequestException('mentorId is required');
+    }
+    const mentor = await this.userRepository.findUserById(mentorId);
+    if (!mentor) {
+      throw new NotFoundException(`User ${mentorId} not found`);
+    }
+    if (mentor.role !== 'MENTOR') {
+      throw new ForbiddenException(
+        'Only MENTOR users can list mentor AI conversations.',
+      );
+    }
+
+    const conversations =
+      await this.conversationRepository.findByOwnerAndType(mentorId, 'mentor_ai_chat');
+
+    return conversations.map((c) => ({
+      conv_id: c.conv_id,
+      title: c.title,
+      state: c.state,
+      created_at: c.created_at,
+      last_active_at: c.last_active_at,
+      knowledge_card_count: 0, // stub: Story 2-3 KC 테이블 생성 후 실제 쿼리로 교체
+    }));
+  }
+
+  async createMentorAiConversation(
+    mentorId: string,
+    title: string,
+  ): Promise<GetMentorAiConversationListReturn> {
+    if (!mentorId?.trim()) {
+      throw new BadRequestException('mentorId is required');
+    }
+    const mentor = await this.userRepository.findUserById(mentorId);
+    if (!mentor) {
+      throw new NotFoundException(`User ${mentorId} not found`);
+    }
+    if (mentor.role !== 'MENTOR') {
+      throw new ForbiddenException(
+        'Only MENTOR users can create mentor AI conversations.',
+      );
+    }
+
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) {
+      throw new BadRequestException('title must not be empty');
+    }
+    if (trimmedTitle.length > 120) {
+      throw new BadRequestException('title must be 120 characters or fewer');
+    }
+
+    const created = await this.conversationRepository.create(
+      mentor.user_id,
+      trimmedTitle,
+      'mentor_ai_chat',
+    );
+    return {
+      conv_id: created.conv_id,
+      title: created.title,
+      state: created.state,
+      created_at: created.created_at,
+      last_active_at: created.last_active_at,
+      knowledge_card_count: 0,
+    };
+  }
+
+  async deleteMentorAiConversation(
+    mentorId: string,
+    convId: string,
+  ): Promise<void> {
+    if (!mentorId?.trim()) {
+      throw new BadRequestException('mentorId is required');
+    }
+    if (!convId?.trim()) {
+      throw new BadRequestException('convId is required');
+    }
+
+    const mentor = await this.userRepository.findUserById(mentorId);
+    if (!mentor) {
+      throw new NotFoundException(`User ${mentorId} not found`);
+    }
+    if (mentor.role !== 'MENTOR') {
+      throw new ForbiddenException(
+        'Only MENTOR users can delete mentor AI conversations.',
+      );
+    }
+
+    const conversation = await this.conversationRepository.findById(convId);
+    if (!conversation) {
+      throw new NotFoundException(`Conversation ${convId} not found`);
+    }
+    if (conversation.owner_id !== mentor.user_id) {
+      throw new ForbiddenException(
+        'Only the owner can delete this conversation.',
+      );
+    }
+    if (conversation.type !== 'mentor_ai_chat') {
+      throw new ForbiddenException(
+        'This endpoint can only delete mentor AI conversations.',
+      );
+    }
+
+    await this.conversationRepository.deleteById(convId);
+  }
+
+  // ── Mentor viewing student conversations (기존) ──
 
   async getActiveConversationListForMentor(
     mentorId: string,
