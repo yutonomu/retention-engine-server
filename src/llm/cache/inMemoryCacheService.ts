@@ -197,12 +197,22 @@ export class InMemoryCacheService {
   /**
    * システムプロンプトキャッシュ無効化
    * (ユーザー設定変更時に呼び出し)
+   * role別キャッシュ (NEW_HIRE / MENTOR) をすべて無効化
    */
   invalidateSystemPrompt(userId: string): void {
-    const cacheKey = `system_prompt:${userId}`;
-    const deleted = this.systemPromptCache.delete(cacheKey);
-    if (deleted) {
-      this.logger.log(`System prompt cache invalidated for userId=${userId}`);
+    let deletedCount = 0;
+    for (const role of ['NEW_HIRE', 'MENTOR'] as const) {
+      const cacheKey = `system_prompt:${userId}:${role}`;
+      if (this.systemPromptCache.delete(cacheKey)) {
+        deletedCount++;
+      }
+    }
+    // 旧キー形式 (role なし) もフォールバック削除
+    if (this.systemPromptCache.delete(`system_prompt:${userId}`)) {
+      deletedCount++;
+    }
+    if (deletedCount > 0) {
+      this.logger.log(`System prompt cache invalidated for userId=${userId} (${deletedCount} entries)`);
     }
   }
 

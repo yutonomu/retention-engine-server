@@ -20,6 +20,7 @@ import { ResponseType, type WebSource, type FileSearchSource } from './dto/llmGe
 import type { HybridAnswerResult } from './external/hybridRagAssistantV2';
 import { InMemoryCacheService } from './cache/inMemoryCacheService';
 import { GeminiCacheService } from './cache/geminiCacheService';
+import { MENTOR_KNOWLEDGE_ELICITATION_INSTRUCTION } from './prompts';
 
 // FILE_SEARCH_INSTRUCTIONを定数として定義（改善版）
 const FILE_SEARCH_INSTRUCTION = `
@@ -86,6 +87,11 @@ export type LlmGenerateCommand = {
   prompt: string;
   conversationId: UUID;
   requireWebSearch: boolean;
+};
+
+export type MentorLlmGenerateCommand = {
+  prompt: string;
+  conversationId: UUID;
 };
 
 export type LlmGenerateResult = {
@@ -176,17 +182,17 @@ export class LlmService {
       `Loaded conversation history conversationId="${command.conversationId}" count=${history.length}`,
     );
 
-    // キャッシュを通じたシステムプロンプト生成
+    // キャッシュを通じたシステムプロンプト生成（NEW_HIRE role）
     const systemInstruction = await this.inMemoryCacheService.getOrCreateSystemPrompt(
-      conversation.owner_id,
-      async () => this.generateSystemPrompt(conversation.owner_id),
+      `${conversation.owner_id}:NEW_HIRE`,
+      async () => this.generateSystemPrompt(conversation.owner_id, 'NEW_HIRE'),
     );
 
     // Gemini Context Caching試行（トークンコスト削減）
     let geminiCacheName: string | null = null;
     try {
       geminiCacheName = await this.geminiCacheService.getOrCreateSystemPromptCache(
-        conversation.owner_id,
+        `${conversation.owner_id}:NEW_HIRE`,
         systemInstruction,
         'gemini-2.0-flash',
       );
@@ -267,12 +273,136 @@ export class LlmService {
   }
 
   /**
+   * メンターAI対話用 — メンターの暗黙知を引き出す対話を生成
+   */
+  async generateForMentor(command: MentorLlmGenerateCommand): Promise<LlmGenerateResult> {
+    const conversation = await this.conversationPort.findById(
+      command.conversationId.toString(),
+    );
+
+    if (!conversation) {
+      this.logger.error(`Conversation not found: ${command.conversationId}`);
+      return this.createErrorResponse(
+        command.conversationId,
+        '会話が見つかりませんでした。新しい会話を開始してください。',
+      );
+    }
+    if (!conversation.owner_id) {
+      this.logger.error(`Conversation has no owner: ${command.conversationId}`);
+      return this.createErrorResponse(
+        command.conversationId,
+        '会話の所有者情報が見つかりませんでした。再度ログインしてください。',
+      );
+    }
+
+    const history = await this.inMemoryCacheService.getOrCreateConversation<Message>(
+      command.conversationId.toString(),
+      async () => {
+        const messages = await this.messagePort.findAllByConversation(
+          command.conversationId.toString(),
+        );
+        return messages as unknown as Message[];
+      },
+    );
+
+    this.logger.log(
+      `[MentorAI] Loaded history conversationId="${command.conversationId}" count=${history.length}`,
+    );
+
+    // キャッシュを通じたシステムプロンプト生成（MENTOR role）
+    const systemInstruction = await this.inMemoryCacheService.getOrCreateSystemPrompt(
+      `${conversation.owner_id}:MENTOR`,
+      async () => this.generateSystemPrompt(conversation.owner_id, 'MENTOR'),
+    );
+
+    // Gemini Context Caching試行（トークンコスト削減）
+    let geminiCacheName: string | null = null;
+    try {
+      geminiCacheName = await this.geminiCacheService.getOrCreateSystemPromptCache(
+        `${conversation.owner_id}:MENTOR`,
+        systemInstruction,
+        'gemini-2.0-flash',
+      );
+      if (geminiCacheName) {
+        this.logger.log(`[MentorAI] Gemini cache ready: ${geminiCacheName}`);
+      }
+    } catch (error) {
+      this.logger.warn('[MentorAI] Failed to create Gemini cache, proceeding without caching', error);
+    }
+
+    this.logger.log(
+      `[MentorAI] System prompt ready for userId=${conversation.owner_id}`,
+    );
+
+    const userMessage: Message = {
+      messageId: createUUID(),
+      conversationId: command.conversationId,
+      userRole: 'MENTOR',
+      content: command.prompt,
+      createdAt: new Date(),
+    };
+
+    let llmResult: LlmGenerateResult;
+    try {
+      const result = (await this.fileSearchAssistant.answerQuestion(
+        command.prompt,
+        {
+          conversationId: command.conversationId,
+          history: [...(history as unknown as Message[]), userMessage],
+          systemInstruction,
+          requireWebSearch: false,
+          geminiCacheName: geminiCacheName ?? undefined,
+        },
+      )) as HybridAnswerResult;
+
+      llmResult = {
+        type: result.type,
+        answer: result.answer,
+        message: {
+          ...result.message,
+          userRole: 'ASSISTANT',
+        },
+        sources: result.sources,
+      };
+    } catch (error) {
+      this.logger.error(
+        `[MentorAI] Failed to generate answer conversationId="${command.conversationId}"`,
+        error as Error,
+      );
+      const fallbackMessage: Message = {
+        messageId: createUUID(),
+        conversationId: command.conversationId,
+        userRole: 'ASSISTANT',
+        content:
+          '申し訳ありません、現在回答を生成できませんでした。しばらくしてから再度お試しください。',
+        createdAt: new Date(),
+      };
+      llmResult = {
+        type: ResponseType.ANSWER,
+        answer: fallbackMessage.content,
+        message: fallbackMessage,
+      };
+    }
+
+    this.inMemoryCacheService.appendToConversation(
+      command.conversationId.toString(),
+      userMessage,
+    );
+    this.inMemoryCacheService.appendToConversation(
+      command.conversationId.toString(),
+      llmResult.message,
+    );
+
+    return llmResult;
+  }
+
+  /**
    * ユーザーのプリセット設定に基づいてシステムプロンプトを生成
    * 二層構造: FILE_SEARCH_INSTRUCTION (ベース) + PersonalityPreset (性格)
    * 
    * FILE_SEARCH_INSTRUCTIONは常にプロンプトに含まれます（プリセットの有無に関わらず）
    */
-  private async generateSystemPrompt(userId: string): Promise<string> {
+  private async generateSystemPrompt(userId: string, role: 'NEW_HIRE' | 'MENTOR' = 'NEW_HIRE'): Promise<string> {
     // 1. ユーザーのプリセット設定を取得
     const presetId = await this.userPort.getUserPersonalityPreset(userId) || toPersonalityPresetId('default_assistant');
 
@@ -302,14 +432,18 @@ export class LlmService {
 
     // プリセットがある場合は、性格プリセットを含めた完全なプロンプトを構築
     if (targetPreset) {
-      return this.buildSystemPromptFromPreset(targetPreset, mbtiInstruction);
+      return this.buildSystemPromptFromPreset(targetPreset, mbtiInstruction, role);
     }
 
     // プリセットが全く見つからない場合でも、FILE_SEARCH_INSTRUCTIONは必ず含める
+    const elicitationInstruction = role === 'MENTOR'
+      ? MENTOR_KNOWLEDGE_ELICITATION_INSTRUCTION
+      : KNOWLEDGE_ELICITATION_INSTRUCTION;
+
     this.logger.warn(
       `No personality preset found for userId=${userId}, using FILE_SEARCH_INSTRUCTION only`,
     );
-    return `${FILE_SEARCH_INSTRUCTION}\n\n---\n\n${KNOWLEDGE_ELICITATION_INSTRUCTION}${mbtiInstruction}`;
+    return `${FILE_SEARCH_INSTRUCTION}\n\n---\n\n${elicitationInstruction}${mbtiInstruction}`;
   }
 
   /**
@@ -318,7 +452,7 @@ export class LlmService {
    * @param mbtiInstruction MBTIに基づく追加指示（ある場合）
    * @returns 完全なシステムプロンプト（ベース層 + 性格層 + MBTI層）
    */
-  private buildSystemPromptFromPreset(preset: PersonalityPreset, mbtiInstruction: string): string {
+  private buildSystemPromptFromPreset(preset: PersonalityPreset, mbtiInstruction: string, role: 'NEW_HIRE' | 'MENTOR' = 'NEW_HIRE'): string {
     // 性格層のプロンプト
     const personalityPrompt = `
 あなたは社内新人教育向けの RAG ベース AI アシスタントです。
@@ -341,8 +475,13 @@ ${preset.systemPromptCore}
 新人が安心して学べるように回答してください。
 `.trim();
 
+    // 役割に応じた暗黙知引き出し指示を選択
+    const elicitationInstruction = role === 'MENTOR'
+      ? MENTOR_KNOWLEDGE_ELICITATION_INSTRUCTION
+      : KNOWLEDGE_ELICITATION_INSTRUCTION;
+
     // ベース層（事実確認）+ 深掘り層（暗黙知引き出し）+ 性格層（口調・スタイル）+ MBTI層（個別最適化）
-    return `${FILE_SEARCH_INSTRUCTION}\n\n---\n\n${KNOWLEDGE_ELICITATION_INSTRUCTION}\n\n---\n\n${personalityPrompt}${mbtiInstruction}`;
+    return `${FILE_SEARCH_INSTRUCTION}\n\n---\n\n${elicitationInstruction}\n\n---\n\n${personalityPrompt}${mbtiInstruction}`;
   }
 
   async uploadDocument(command: UploadDocumentCommand): Promise<void> {

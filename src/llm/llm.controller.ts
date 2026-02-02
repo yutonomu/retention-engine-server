@@ -6,6 +6,7 @@ import { ZodValidationPipe } from '../common/pipes/zodValidation.pipe';
 import {
   LlmService,
   type LlmGenerateCommand,
+  type MentorLlmGenerateCommand,
   type UploadDocumentCommand,
 } from './llm.service';
 import type { UUID } from '../common/uuid';
@@ -60,6 +61,29 @@ export class LlmController {
         `answerLength=${result.answer.length} ` +
         `sourcesCount=${totalSources}`,
     );
+
+    return {
+      type: result.type,
+      answer: result.answer,
+      sources: result.sources,
+    };
+  }
+
+  @UsePipes(new ZodValidationPipe(llmGenerateRequestSchema))
+  @Post('mentor/generate')
+  async mentorGenerate(@Body() payload: LlmGenerateRequestDto) {
+    this.logger.log(
+      `[MentorAI] Received generate request: ` +
+        `question="${payload.question.substring(0, 50)}..." ` +
+        `conversationId=${payload.conversationId}`,
+    );
+
+    const command: MentorLlmGenerateCommand = {
+      prompt: payload.question,
+      conversationId: payload.conversationId as UUID,
+    };
+
+    const result = await this.llmService.generateForMentor(command);
 
     return {
       type: result.type,

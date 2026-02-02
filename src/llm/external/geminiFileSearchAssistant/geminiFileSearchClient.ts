@@ -70,7 +70,7 @@ const FILE_SEARCH_INSTRUCTION = `
 `;
 
 function mapUserRoleToRole(role: UserRole) {
-  return role === 'NEW_HIRE' ? ('user' as const) : ('model' as const);
+  return role === 'ASSISTANT' ? ('model' as const) : ('user' as const);
 }
 
 export class GeminiFileSearchClient {
