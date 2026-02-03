@@ -10,6 +10,7 @@ import { GeneralKnowledgeAssistant } from './generalKnowledgeAssistant';
 import type { Message } from '../../Entity/Message';
 import { createUUID, type UUID } from '../../common/uuid';
 import { ResponseType, type FileSearchSource } from '../dto/llmGenerateResponse.dto';
+import type { SSEEvent } from '../dto/sseEvent.types';
 import { InMemoryCacheService } from '../cache/inMemoryCacheService';
 
 export type HybridAnswerResult = {
@@ -103,6 +104,145 @@ export class HybridRagAssistant extends FileSearchAssistant {
 
     // Step 3: Web検索不要の場合は社内RAGの結果をそのまま返す
     return ragResult;
+  }
+
+  /**
+   * ストリーミング版 メイン回答ロジック
+   *
+   * パイプラインの各段階でstepイベントを発行し、
+   * LLMの応答をチャンクごとにyieldする。
+   *
+   * NOTE: Web検索がONの場合、RAGの回答は内部で保持するだけで
+   * クライアントにはWeb検索で統合された回答のみをストリーム出力する。
+   * これにより、2つの回答が表示される問題を防ぐ。
+   */
+  async *answerQuestionStream(
+    question: string,
+    options: HybridSearchOptions,
+  ): AsyncGenerator<SSEEvent> {
+    this.logger.log(
+      `Processing question (streaming) with requireWebSearch=${options.requireWebSearch}`,
+    );
+
+    // Step 1: FileSearch（常に実行）
+    yield { type: 'step', data: 'ドキュメント検索中...', metadata: { step: 'file_search' } };
+
+    let ragAnswer = '';
+    let ragSources: any = null;
+
+    try {
+      // ragAssistant が GeminiFileSearchClient の場合 answerQuestionStream が使える
+      const ragClient = this.ragAssistant as any;
+      if (typeof ragClient.answerQuestionStream === 'function') {
+        for await (const event of ragClient.answerQuestionStream(question, options)) {
+          if (event.type === 'chunk') {
+            ragAnswer += event.data;
+          }
+          if (event.type === 'sources') {
+            ragSources = event.metadata?.sources;
+          }
+          // Web検索がOFFの場合のみ、RAGの結果を直接ストリーム出力
+          if (!options.requireWebSearch) {
+            yield event;
+          }
+        }
+      } else {
+        // ストリーミング非対応の場合はフォールバック
+        const result = await this.ragAssistant.answerQuestion(question, options);
+        ragAnswer = result.answer;
+        ragSources = result.sources;
+        // Web検索がOFFの場合のみ出力
+        if (!options.requireWebSearch) {
+          yield { type: 'chunk', data: result.answer };
+          if (result.sources?.fileSearch && result.sources.fileSearch.length > 0) {
+            yield {
+              type: 'sources',
+              data: '',
+              metadata: { sources: { fileSearch: result.sources.fileSearch } },
+            };
+          }
+        }
+      }
+    } catch (error) {
+      this.logger.error('FileSearch streaming failed, falling back to general assistant', error);
+
+      // GeneralKnowledgeAssistant でフォールバック（ストリーミング）
+      for await (const event of this.generalAssistant.answerStream(question, {
+        conversationId: options.conversationId as string,
+        history: options.history,
+        systemInstruction: options.systemInstruction,
+        cachedContentName: options.geminiCacheName,
+      })) {
+        if (event.type === 'chunk') {
+          ragAnswer += event.data;
+        }
+        // Web検索がOFFの場合のみ出力
+        if (!options.requireWebSearch) {
+          yield event;
+        }
+      }
+    }
+
+    // Step 2: Web検索補強（オプション）
+    if (options.requireWebSearch) {
+      yield { type: 'step', data: 'Web検索中...', metadata: { step: 'web_search' } };
+
+      try {
+        yield { type: 'step', data: '回答を統合中...', metadata: { step: 'synthesis' } };
+
+        // Web検索補強プロンプトを構築して、ストリーミングで統合回答を生成
+        const currentYear = new Date().getFullYear();
+        const currentMonth = new Date().getMonth() + 1;
+
+        const enhancementPrompt = `
+あなたは最新情報検索の専門家です。現在は${currentYear}年${currentMonth}月です。
+
+以下の社内RAGの回答を、Web検索で得た最新情報で補強して、1つの統合された回答を作成してください。
+
+【元の質問】
+${question}
+
+【社内RAGの回答】
+${ragAnswer}
+
+【回答の統合指示】
+1. 社内RAGの回答とWeb検索の情報を自然に融合させて、一つの統合された文章として回答する
+2. 「社内資料では〜ですが、Web検索によると〜」のような形で情報源を自然に示す
+3. 別々のセクションに分けずに、一つの流れのある文章として構成する
+4. 必ず${currentYear}年${currentMonth}月時点の最新情報を検索して含める
+`.trim();
+
+        for await (const event of this.webAssistant.searchStream(enhancementPrompt, {
+          systemInstruction: options.systemInstruction,
+        })) {
+          yield event; // Web検索で統合された回答をストリーム出力
+        }
+      } catch (error) {
+        this.logger.error('Web search streaming failed', error);
+        // Web検索が失敗した場合は、RAGの回答をフォールバックとして出力
+        yield { type: 'chunk', data: ragAnswer };
+        if (ragSources?.fileSearch && ragSources.fileSearch.length > 0) {
+          yield {
+            type: 'sources',
+            data: '',
+            metadata: { sources: { fileSearch: ragSources.fileSearch } },
+          };
+        }
+        yield {
+          type: 'error',
+          data: 'Web検索中にエラーが発生しました（社内RAGの回答を表示しています）',
+          metadata: {
+            error: {
+              code: 'WEB_SEARCH_ERROR',
+              message: (error as Error).message,
+              retryable: false,
+            },
+          },
+        };
+      }
+    }
+
+    yield { type: 'done', data: '' };
   }
 
   /**

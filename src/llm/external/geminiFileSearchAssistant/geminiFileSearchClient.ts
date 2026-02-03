@@ -27,6 +27,7 @@ import type {
   FileSearchChunk,
   FileSearchSource,
 } from '../../dto/llmGenerateResponse.dto';
+import type { SSEEvent } from '../../dto/sseEvent.types';
 
 const POLL_INTERVAL_MS = 5000;
 const STORE_REGISTRY_PATH = path.resolve('store-registry.json');
@@ -180,6 +181,97 @@ export class GeminiFileSearchClient {
       : undefined;
 
     return { answer, message: assistantMessage, sources };
+  }
+
+  /**
+   * ストリーミング版 回答生成
+   * generateContentStream を使用してチャンクごとにSSEイベントをyield
+   */
+  async *answerQuestionStream(
+    question: string,
+    options: FileSearchAnswerOptions,
+  ): AsyncGenerator<SSEEvent> {
+    if (!question?.trim()) {
+      throw new Error('Question is required.');
+    }
+
+    await this.ensureStoresReady();
+    const history = options.history ?? [];
+
+    const instruction = options.systemInstruction
+      ? `${FILE_SEARCH_INSTRUCTION.trim()}\n\n${options.systemInstruction}`
+      : FILE_SEARCH_INSTRUCTION.trim();
+
+    const contents = [
+      {
+        role: 'user' as const,
+        parts: [{ text: instruction }],
+      },
+      ...history.map((message) => ({
+        role: mapUserRoleToRole(message.userRole),
+        parts: [{ text: message.content }],
+      })),
+    ];
+
+    contents.push({
+      role: 'user' as const,
+      parts: [{ text: question }],
+    });
+
+    const requestConfig: any = {
+      model: 'gemini-2.5-pro',
+      contents,
+      config: {
+        tools: [
+          {
+            fileSearch: {
+              fileSearchStoreNames: this.storeNamesForSearch,
+            },
+          },
+        ],
+      },
+    };
+
+    if (options.systemInstruction) {
+      requestConfig.config.systemInstruction = options.systemInstruction;
+    }
+
+    const stream = await this.executeWithRetry(async () => {
+      return this.ai.models.generateContentStream(requestConfig);
+    });
+
+    let fullText = '';
+
+    for await (const chunk of stream) {
+      const candidates = (chunk as any).candidates ?? [];
+      for (const candidate of candidates) {
+        const parts = candidate?.content?.parts ?? [];
+        for (const part of parts) {
+          if (part.text) {
+            fullText += part.text;
+            yield { type: 'chunk', data: part.text };
+          }
+        }
+      }
+    }
+
+    // ストリーム完了後、集約レスポンスからソース情報を抽出
+    // generateContentStream の response プロパティで集約レスポンスにアクセス
+    try {
+      const aggregatedResponse = (stream as any).response;
+      if (aggregatedResponse) {
+        const fileSearchSources = this.extractCitations(aggregatedResponse);
+        if (fileSearchSources.length > 0) {
+          yield {
+            type: 'sources',
+            data: '',
+            metadata: { sources: { fileSearch: fileSearchSources } },
+          };
+        }
+      }
+    } catch (error) {
+      this.logger.warn('Failed to extract citations from stream response', error);
+    }
   }
 
   /**

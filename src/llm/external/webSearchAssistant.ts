@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { GoogleGenAI } from '@google/genai';
 import type { Message } from '../../Entity/Message';
+import type { SSEEvent } from '../dto/sseEvent.types';
 
 export type WebSource = {
   title: string;
@@ -209,6 +210,75 @@ ${question}
     }
 
     return { answer, sources, confidence };
+  }
+
+  /**
+   * ストリーミング版 Web検索
+   * テキストチャンクをyieldし、完了後にソース情報をyield
+   */
+  async *searchStream(
+    question: string,
+    options: {
+      history?: Message[];
+      systemInstruction?: string;
+    } = {},
+  ): AsyncGenerator<SSEEvent> {
+    await this.rateLimiter.acquire();
+
+    this.logger.log(`Executing web search (streaming) for: "${question.substring(0, 50)}..."`);
+
+    const searchPrompt = `
+以下についてGoogle検索を使って調べてください：
+${question}
+
+必ずgoogleSearchツールを使用してください。
+`.trim();
+
+    const contents = [
+      {
+        role: 'user' as const,
+        parts: [{ text: searchPrompt }],
+      },
+    ];
+
+    const stream = await this.ai.models.generateContentStream({
+      model: 'gemini-2.5-flash',
+      contents,
+      config: {
+        tools: [{
+          googleSearch: {},
+        }],
+      },
+    });
+
+    for await (const chunk of stream) {
+      const candidates = (chunk as any).candidates ?? [];
+      for (const candidate of candidates) {
+        const parts = candidate?.content?.parts ?? [];
+        for (const part of parts) {
+          if (part.text) {
+            yield { type: 'chunk', data: part.text };
+          }
+        }
+      }
+    }
+
+    // ストリーム完了後、集約レスポンスからWebソース情報を抽出
+    try {
+      const aggregatedResponse = (stream as any).response;
+      if (aggregatedResponse) {
+        const sources = this.extractWebSources(aggregatedResponse);
+        if (sources.length > 0) {
+          yield {
+            type: 'sources',
+            data: '',
+            metadata: { sources: { webSearch: sources } },
+          };
+        }
+      }
+    } catch (error) {
+      this.logger.warn('Failed to extract web sources from stream response', error);
+    }
   }
 
   /**

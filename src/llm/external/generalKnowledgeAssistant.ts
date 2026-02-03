@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { GoogleGenAI } from '@google/genai';
 import type { Message } from '../../Entity/Message';
 import { createUUID, type UUID } from '../../common/uuid';
+import type { SSEEvent } from '../dto/sseEvent.types';
 
 export type GeneralAnswerResult = {
   answer: string;
@@ -103,6 +104,63 @@ export class GeneralKnowledgeAssistant {
     } catch (error) {
       this.logger.error('General knowledge answer failed', error);
       throw error;
+    }
+  }
+
+  /**
+   * ストリーミング版 一般知識回答
+   */
+  async *answerStream(
+    prompt: string,
+    options: GeneralAnswerOptions = {},
+  ): AsyncGenerator<SSEEvent> {
+    this.logger.log('Generating general knowledge answer (streaming)');
+
+    const history = options.history || [];
+
+    const contents = [
+      ...history.map((msg) => ({
+        role: msg.userRole === 'NEW_HIRE' ? ('user' as const) : ('model' as const),
+        parts: [{ text: msg.content }],
+      })),
+      {
+        role: 'user' as const,
+        parts: [{ text: prompt }],
+      },
+    ];
+
+    const requestConfig: Record<string, unknown> = {
+      model: 'gemini-2.0-flash',
+      contents,
+    };
+
+    if (options.systemInstruction && !options.cachedContentName) {
+      requestConfig.config = {
+        systemInstruction: options.systemInstruction,
+      };
+    }
+
+    if (options.cachedContentName) {
+      requestConfig.config = {
+        ...((requestConfig.config as object) || {}),
+        cachedContent: options.cachedContentName,
+      };
+    }
+
+    const stream = await this.ai.models.generateContentStream(
+      requestConfig as unknown as Parameters<typeof this.ai.models.generateContentStream>[0],
+    );
+
+    for await (const chunk of stream) {
+      const candidates = (chunk as any).candidates ?? [];
+      for (const candidate of candidates) {
+        const parts = candidate?.content?.parts ?? [];
+        for (const part of parts) {
+          if (part.text) {
+            yield { type: 'chunk', data: part.text };
+          }
+        }
+      }
     }
   }
 
