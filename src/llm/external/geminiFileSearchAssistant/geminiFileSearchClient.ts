@@ -153,12 +153,12 @@ export class GeminiFileSearchClient {
           ],
         },
       };
-      
+
       // systemInstructionが提供されている場合は追加
       if (options.systemInstruction) {
         requestConfig.config.systemInstruction = options.systemInstruction;
       }
-      
+
       return this.ai.models.generateContent(requestConfig);
     });
 
@@ -176,9 +176,10 @@ export class GeminiFileSearchClient {
     };
 
     // FileSearchSources構造に合わせてネスト
-    const sources = fileSearchSources.length > 0
-      ? { fileSearch: fileSearchSources }
-      : undefined;
+    const sources =
+      fileSearchSources.length > 0
+        ? { fileSearch: fileSearchSources }
+        : undefined;
 
     return { answer, message: assistantMessage, sources };
   }
@@ -277,9 +278,7 @@ export class GeminiFileSearchClient {
   /**
    * Exponential backoffを使用したretryロジック
    */
-  private async executeWithRetry<T>(
-    operation: () => Promise<T>,
-  ): Promise<T> {
+  private async executeWithRetry<T>(operation: () => Promise<T>): Promise<T> {
     let lastError: Error | null = null;
 
     for (let attempt = 0; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
@@ -570,13 +569,13 @@ export class GeminiFileSearchClient {
     }
 
     // Convert map to FileSearchSource array
-    const sources: FileSearchSource[] = Array.from(
-      sourceMap.entries(),
-    ).map(([fileName, chunks]) => ({
-      fileName,
-      documentId: this.extractDocumentId(chunks[0]),
-      chunks,
-    }));
+    const sources: FileSearchSource[] = Array.from(sourceMap.entries()).map(
+      ([fileName, chunks]) => ({
+        fileName,
+        documentId: this.extractDocumentId(chunks[0]),
+        chunks,
+      }),
+    );
 
     return sources;
   }
@@ -777,8 +776,8 @@ export class GeminiFileSearchClient {
 
     const candidatesRaw =
       typeof response === 'object' &&
-        response !== null &&
-        Array.isArray((response as { candidates?: unknown }).candidates)
+      response !== null &&
+      Array.isArray((response as { candidates?: unknown }).candidates)
         ? (response as { candidates: unknown[] }).candidates
         : [];
 
@@ -814,7 +813,7 @@ export class GeminiFileSearchClient {
 
     const finishReason =
       candidatesRaw.length > 0 &&
-        typeof (candidatesRaw[0] as { finishReason?: unknown }).finishReason ===
+      typeof (candidatesRaw[0] as { finishReason?: unknown }).finishReason ===
         'string'
         ? (candidatesRaw[0] as { finishReason: string }).finishReason
         : 'unknown';

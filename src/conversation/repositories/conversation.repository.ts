@@ -1,6 +1,10 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { Conversation, ConversationState, ConversationType } from '../conversation.types';
+import {
+  Conversation,
+  ConversationState,
+  ConversationType,
+} from '../conversation.types';
 import type { ConversationPort } from '../conversation.port';
 import type { SupabaseAdminClient } from '../../supabase/adminClient';
 
@@ -11,7 +15,11 @@ export class ConversationRepository implements ConversationPort {
     private readonly supabase: SupabaseAdminClient,
   ) {}
 
-  async create(ownerId: string, title: string, type?: ConversationType): Promise<Conversation> {
+  async create(
+    ownerId: string,
+    title: string,
+    type?: ConversationType,
+  ): Promise<Conversation> {
     if (!ownerId?.trim()) {
       throw new Error('owner_id is required to create a conversation');
     }
@@ -50,7 +58,10 @@ export class ConversationRepository implements ConversationPort {
     return data as unknown as Conversation[];
   }
 
-  async findByOwnerAndType(ownerId: string, type: ConversationType): Promise<Conversation[]> {
+  async findByOwnerAndType(
+    ownerId: string,
+    type: ConversationType,
+  ): Promise<Conversation[]> {
     const { data, error } = await this.supabase
       .from('conversation')
       .select()
@@ -59,7 +70,9 @@ export class ConversationRepository implements ConversationPort {
       .order('last_active_at', { ascending: false })
       .order('conv_id', { ascending: false });
     if (error || !data) {
-      throw error ?? new Error('Failed to fetch conversations by owner and type.');
+      throw (
+        error ?? new Error('Failed to fetch conversations by owner and type.')
+      );
     }
     return data as unknown as Conversation[];
   }
@@ -83,7 +96,10 @@ export class ConversationRepository implements ConversationPort {
       .maybeSingle();
 
     if (error) {
-      console.error(`[ConversationRepository] Failed to fetch conversation: ${convId}`, error);
+      console.error(
+        `[ConversationRepository] Failed to fetch conversation: ${convId}`,
+        error,
+      );
       throw error;
     }
 

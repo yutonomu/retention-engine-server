@@ -19,6 +19,8 @@ import type {
   SaveKnowledgeCardResponse,
   KCListItemResponse,
   KCDetailResponse,
+  TriggerStatusResponse,
+  DetectTacitWithTriggersResponse,
 } from './dto/knowledgeCardResponse.dto';
 
 interface AuthenticatedRequest {
@@ -46,6 +48,30 @@ export class KnowledgeController {
     });
 
     return { candidates };
+  }
+
+  /**
+   * GET /knowledge/trigger-status/:conversationId
+   * Story 2-6: トリガー蓄積状況を確認
+   */
+  @Get('trigger-status/:conversationId')
+  async getTriggerStatus(
+    @Param('conversationId') conversationId: string,
+  ): Promise<TriggerStatusResponse> {
+    return this.knowledgeService.checkTriggerThreshold(conversationId);
+  }
+
+  /**
+   * POST /knowledge/detect-tacit-with-triggers
+   * Story 2-6: トリガーコンテキスト付きで暗黙知検出
+   */
+  @Post('detect-tacit-with-triggers')
+  async detectTacitKnowledgeWithTriggers(
+    @Body() body: { conversationId: string },
+  ): Promise<DetectTacitWithTriggersResponse> {
+    return this.knowledgeService.detectTacitKnowledgeWithTriggerContext(
+      body.conversationId,
+    );
   }
 
   /**
@@ -112,9 +138,7 @@ export class KnowledgeController {
    * KC詳細
    */
   @Get('cards/:id')
-  async getKnowledgeCard(
-    @Param('id') id: string,
-  ): Promise<KCDetailResponse> {
+  async getKnowledgeCard(@Param('id') id: string): Promise<KCDetailResponse> {
     const kc = await this.knowledgeService.getKnowledgeCard(id);
 
     return {
@@ -143,7 +167,8 @@ export class KnowledgeController {
   @Patch('cards/:id')
   async updateKnowledgeCard(
     @Param('id') id: string,
-    @Body() body: {
+    @Body()
+    body: {
       title?: string;
       situation?: string;
       knowhow?: string;
@@ -190,9 +215,7 @@ export class KnowledgeController {
    * 役立ったカウント
    */
   @Post('cards/:id/useful')
-  async markUseful(
-    @Param('id') id: string,
-  ): Promise<{ success: boolean }> {
+  async markUseful(@Param('id') id: string): Promise<{ success: boolean }> {
     await this.knowledgeService.markUseful(id);
     return { success: true };
   }

@@ -28,7 +28,10 @@ export type ConstructionCategory = {
 /**
  * 建設現場の暗黙知パターン集
  */
-export const CONSTRUCTION_TACIT_KNOWLEDGE_EXAMPLES: Record<string, ConstructionCategory> = {
+export const CONSTRUCTION_TACIT_KNOWLEDGE_EXAMPLES: Record<
+  string,
+  ConstructionCategory
+> = {
   concreteWork: {
     label: 'コンクリート打設',
     sensoryToQuantitative: [

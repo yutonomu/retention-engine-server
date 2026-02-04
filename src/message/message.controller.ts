@@ -1,7 +1,8 @@
 import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { MessageService } from './message.service';
-import type { Message } from './message.types';
+import type { Message, TriggerType } from './message.types';
+import type { TriggerAggregation } from './message.port';
 
 interface MessageListResponse {
   data: Message[];
@@ -17,16 +18,24 @@ interface CreateMessageRequest {
   convId: string;
   role: Message['role'];
   content: string;
+  // Story 2-6: トリガーメタデータ
+  triggerType?: TriggerType | null;
+  triggerConfidence?: number | null;
+  triggerExcerpt?: string | null;
 }
 
 interface CreateMessageResponse {
   data: Message;
 }
 
+interface TriggerAggregationResponse {
+  data: TriggerAggregation[];
+}
+
 @Controller('messages')
 @UseGuards(JwtAuthGuard)
 export class MessageController {
-  constructor(private readonly messageService: MessageService) { }
+  constructor(private readonly messageService: MessageService) {}
 
   @Get()
   async getMessages(
@@ -76,7 +85,23 @@ export class MessageController {
       convId: body.convId,
       role: body.role,
       content: body.content,
+      triggerType: body.triggerType ?? null,
+      triggerConfidence: body.triggerConfidence ?? null,
+      triggerExcerpt: body.triggerExcerpt ?? null,
     });
     return { data: message };
+  }
+
+  /**
+   * 会話内のトリガー集計 (Story 2-6)
+   * KC生成判断のためのトリガー集計
+   */
+  @Get('triggers')
+  async getTriggerAggregation(
+    @Query('convId') convId?: string,
+  ): Promise<TriggerAggregationResponse> {
+    const aggregation =
+      await this.messageService.aggregateTriggersByConversation(convId ?? '');
+    return { data: aggregation };
   }
 }

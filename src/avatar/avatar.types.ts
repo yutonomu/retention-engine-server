@@ -1,10 +1,24 @@
 export type AvatarGender = 'female' | 'male' | 'neutral';
 
-export type AvatarPersonality = 'friendly' | 'professional' | 'caring' | 'energetic';
+export type AvatarPersonality =
+  | 'friendly'
+  | 'professional'
+  | 'caring'
+  | 'energetic';
 
-export type AvatarEmotion = 'neutral' | 'happy' | 'thinking' | 'surprised' | 'concerned' | 'proud';
+export type AvatarEmotion =
+  | 'neutral'
+  | 'happy'
+  | 'thinking'
+  | 'surprised'
+  | 'concerned'
+  | 'proud';
 
-export type AvatarGenerationStatus = 'pending' | 'generating' | 'completed' | 'failed';
+export type AvatarGenerationStatus =
+  | 'pending'
+  | 'generating'
+  | 'completed'
+  | 'failed';
 
 export const AVATAR_EMOTIONS: AvatarEmotion[] = [
   'neutral',

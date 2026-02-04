@@ -1,6 +1,9 @@
 import type { Message } from '../../Entity/Message';
 import type { UUID } from '../../common/uuid';
-import type { FileSearchSource, WebSource } from '../dto/llmGenerateResponse.dto';
+import type {
+  FileSearchSource,
+  WebSource,
+} from '../dto/llmGenerateResponse.dto';
 
 export type FileSearchAnswerOptions = {
   conversationId: UUID;

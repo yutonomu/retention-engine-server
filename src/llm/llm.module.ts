@@ -21,7 +21,12 @@ import { GeminiCacheService } from './cache/geminiCacheService';
 const ORIGINAL_FILE_SEARCH_ASSISTANT = 'ORIGINAL_FILE_SEARCH_ASSISTANT';
 
 @Module({
-  imports: [MessageModule, UserModule, ConversationModule, PersonalityPresetModule],
+  imports: [
+    MessageModule,
+    UserModule,
+    ConversationModule,
+    PersonalityPresetModule,
+  ],
   controllers: [LlmController],
   providers: [
     LlmService,
@@ -54,7 +59,9 @@ const ORIGINAL_FILE_SEARCH_ASSISTANT = 'ORIGINAL_FILE_SEARCH_ASSISTANT';
       useFactory: () => {
         const apiKey = process.env.GOOGLE_API_KEY;
         if (!apiKey) {
-          throw new Error('GOOGLE_API_KEY is required for GeneralKnowledgeAssistant');
+          throw new Error(
+            'GOOGLE_API_KEY is required for GeneralKnowledgeAssistant',
+          );
         }
         return new GeneralKnowledgeAssistant(apiKey);
       },
@@ -69,9 +76,19 @@ const ORIGINAL_FILE_SEARCH_ASSISTANT = 'ORIGINAL_FILE_SEARCH_ASSISTANT';
         generalService: GeneralKnowledgeAssistant,
         cacheService: InMemoryCacheService,
       ) => {
-        return new HybridRagAssistant(ragService, webService, generalService, cacheService);
+        return new HybridRagAssistant(
+          ragService,
+          webService,
+          generalService,
+          cacheService,
+        );
       },
-      inject: [ORIGINAL_FILE_SEARCH_ASSISTANT, WebSearchAssistant, GeneralKnowledgeAssistant, InMemoryCacheService],
+      inject: [
+        ORIGINAL_FILE_SEARCH_ASSISTANT,
+        WebSearchAssistant,
+        GeneralKnowledgeAssistant,
+        InMemoryCacheService,
+      ],
     },
   ],
   exports: [LlmService, GeminiTextService],

@@ -10,10 +10,7 @@ import {
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import {
-  updateMbtiSchema,
-  type UpdateMbtiDto,
-} from './dto/updateMbti.dto';
+import { updateMbtiSchema, type UpdateMbtiDto } from './dto/updateMbti.dto';
 import type { GetUserMbtiResponseDto } from './dto/getUserMbtiResponse.dto';
 import {
   UpdatePersonalityPresetSchema,
@@ -23,11 +20,9 @@ import type { GetPersonalityPresetResponseDto } from './dto/getPersonalityPreset
 import type { JwtPayload } from '../auth/auth.types';
 import { toPersonalityPresetId } from '../personality-preset/personalityPreset.types';
 
-
-
 @Controller('users')
 export class UserController {
-  constructor(private readonly userService: UserService) { }
+  constructor(private readonly userService: UserService) {}
 
   @Get('mbti')
   @UseGuards(JwtAuthGuard)
@@ -36,7 +31,10 @@ export class UserController {
   ): Promise<GetUserMbtiResponseDto> {
     const userId = req.user.sub;
     if (!userId) {
-      throw new HttpException('Unauthorized: userId is required', HttpStatus.UNAUTHORIZED);
+      throw new HttpException(
+        'Unauthorized: userId is required',
+        HttpStatus.UNAUTHORIZED,
+      );
     }
 
     try {
@@ -61,9 +59,12 @@ export class UserController {
   ): Promise<void> {
     const userId = req.user.sub;
     if (!userId) {
-      throw new HttpException('Unauthorized: userId is required', HttpStatus.UNAUTHORIZED);
+      throw new HttpException(
+        'Unauthorized: userId is required',
+        HttpStatus.UNAUTHORIZED,
+      );
     }
-    // const userRole = req.user.role; 
+    // const userRole = req.user.role;
 
     // if (userRole !== 'NEW_HIRE') {
     //   throw new HttpException('Forbidden', HttpStatus.FORBIDDEN);
@@ -99,7 +100,10 @@ export class UserController {
   ): Promise<GetPersonalityPresetResponseDto> {
     const userId = req.user.sub;
     if (!userId) {
-      throw new HttpException('Unauthorized: userId is required', HttpStatus.UNAUTHORIZED);
+      throw new HttpException(
+        'Unauthorized: userId is required',
+        HttpStatus.UNAUTHORIZED,
+      );
     }
 
     try {
@@ -124,24 +128,25 @@ export class UserController {
   ): Promise<void> {
     const userId = req.user.sub;
     if (!userId) {
-      throw new HttpException('Unauthorized: userId is required', HttpStatus.UNAUTHORIZED);
+      throw new HttpException(
+        'Unauthorized: userId is required',
+        HttpStatus.UNAUTHORIZED,
+      );
     }
 
     let validatedData: UpdatePersonalityPresetDto;
     try {
       validatedData = UpdatePersonalityPresetSchema.parse(body);
     } catch (error) {
-      throw new HttpException(
-        'Invalid preset ID.',
-        HttpStatus.BAD_REQUEST,
-      );
+      throw new HttpException('Invalid preset ID.', HttpStatus.BAD_REQUEST);
     }
 
     try {
       // string | null を PersonalityPresetId | null に変換
-      const presetId = validatedData.presetId !== null
-        ? toPersonalityPresetId(validatedData.presetId)
-        : null;
+      const presetId =
+        validatedData.presetId !== null
+          ? toPersonalityPresetId(validatedData.presetId)
+          : null;
       await this.userService.updateUserPersonalityPreset(userId, presetId);
     } catch (error) {
       if ((error as Error).message === 'User not found') {

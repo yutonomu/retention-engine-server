@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { createAdminSupabaseClient, type SupabaseAdminClient } from '../supabase/adminClient';
+import {
+  createAdminSupabaseClient,
+  type SupabaseAdminClient,
+} from '../supabase/adminClient';
 import type {
   AvatarSettings,
   AvatarGender,
@@ -47,7 +50,8 @@ export class AvatarService {
   }
 
   private buildAvatarUrls(userId: string): AvatarUrls {
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseUrl =
+      process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
     const baseUrl = `${supabaseUrl}/storage/v1/object/public/avatars/${userId}`;
 
     return {
@@ -78,8 +82,12 @@ export class AvatarService {
       return { settings: null, avatarUrls: null };
     }
 
-    const settings = this.mapRowToSettings(data as unknown as AvatarSettingsRow);
-    const avatarUrls = settings.isGenerated ? this.buildAvatarUrls(userId) : null;
+    const settings = this.mapRowToSettings(
+      data as unknown as AvatarSettingsRow,
+    );
+    const avatarUrls = settings.isGenerated
+      ? this.buildAvatarUrls(userId)
+      : null;
 
     return { settings, avatarUrls };
   }
@@ -139,7 +147,9 @@ export class AvatarService {
       };
     }
 
-    const settings = this.mapRowToSettings(data as unknown as AvatarSettingsRow);
+    const settings = this.mapRowToSettings(
+      data as unknown as AvatarSettingsRow,
+    );
 
     const currentEmotion =
       settings.generationStatus === 'generating' &&
@@ -165,7 +175,9 @@ export class AvatarService {
       .single();
 
     if (settingsError || !settingsData) {
-      throw new Error('Avatar settings not found. Please configure settings first.');
+      throw new Error(
+        'Avatar settings not found. Please configure settings first.',
+      );
     }
 
     const settings = settingsData as unknown as AvatarSettingsRow;
@@ -179,12 +191,14 @@ export class AvatarService {
     await this.updateGenerationStatus(userId, 'generating', 0);
 
     // 비동기로 이미지 생성 시작
-    this.generateAvatarsAsync(userId, settings.gender, settings.personality_preset).catch(
-      (error) => {
-        console.error('Avatar generation failed:', error);
-        this.updateGenerationStatus(userId, 'failed', 0);
-      },
-    );
+    this.generateAvatarsAsync(
+      userId,
+      settings.gender,
+      settings.personality_preset,
+    ).catch((error) => {
+      console.error('Avatar generation failed:', error);
+      this.updateGenerationStatus(userId, 'failed', 0);
+    });
   }
 
   private async updateGenerationStatus(
@@ -207,7 +221,8 @@ export class AvatarService {
     gender: AvatarGender,
     personality: AvatarPersonality,
   ): Promise<void> {
-    const apiKey = process.env.GOOGLE_API_KEY || process.env.GOOGLE_GEMINI_API_KEY;
+    const apiKey =
+      process.env.GOOGLE_API_KEY || process.env.GOOGLE_GEMINI_API_KEY;
 
     if (!apiKey) {
       throw new Error('GOOGLE_API_KEY is not configured');
@@ -221,7 +236,12 @@ export class AvatarService {
 
       try {
         // 이미지 생성
-        const imageBuffer = await this.generateAvatarImage(gender, personality, emotion, apiKey);
+        const imageBuffer = await this.generateAvatarImage(
+          gender,
+          personality,
+          emotion,
+          apiKey,
+        );
 
         // Supabase Storage에 업로드
         const filePath = `${userId}/${emotion}.webp`;
@@ -248,7 +268,11 @@ export class AvatarService {
     }
 
     // 완료 상태로 업데이트
-    await this.updateGenerationStatus(userId, 'completed', AVATAR_EMOTIONS.length);
+    await this.updateGenerationStatus(
+      userId,
+      'completed',
+      AVATAR_EMOTIONS.length,
+    );
   }
 
   private async generateAvatarImage(
@@ -314,18 +338,24 @@ export class AvatarService {
     personality: AvatarPersonality,
     emotion: AvatarEmotion,
   ): string {
-    const personalityDescriptions: Record<AvatarPersonality, { description: string; traits: string }> = {
+    const personalityDescriptions: Record<
+      AvatarPersonality,
+      { description: string; traits: string }
+    > = {
       friendly: {
         description: 'warm and approachable',
-        traits: 'gentle smile lines, soft eyes, relaxed posture, welcoming expression',
+        traits:
+          'gentle smile lines, soft eyes, relaxed posture, welcoming expression',
       },
       professional: {
         description: 'confident and competent',
-        traits: 'sharp features, poised expression, elegant, sophisticated demeanor',
+        traits:
+          'sharp features, poised expression, elegant, sophisticated demeanor',
       },
       caring: {
         description: 'nurturing and supportive',
-        traits: 'kind eyes, warm complexion, gentle demeanor, comforting presence',
+        traits:
+          'kind eyes, warm complexion, gentle demeanor, comforting presence',
       },
       energetic: {
         description: 'dynamic and enthusiastic',
@@ -334,12 +364,18 @@ export class AvatarService {
     };
 
     const emotionExpressions: Record<AvatarEmotion, string> = {
-      neutral: 'calm and attentive expression, slight professional smile, ready to listen',
-      happy: 'genuine warm smile, eyes slightly crinkled with joy, radiating positivity',
-      thinking: 'thoughtful expression, slight head tilt, focused gaze, contemplative',
-      surprised: 'pleasantly surprised, raised eyebrows, bright eyes, delighted discovery',
-      concerned: 'caring concerned look, slightly furrowed brow, empathetic expression',
-      proud: 'beaming with pride, confident smile, approving expression, celebrating success',
+      neutral:
+        'calm and attentive expression, slight professional smile, ready to listen',
+      happy:
+        'genuine warm smile, eyes slightly crinkled with joy, radiating positivity',
+      thinking:
+        'thoughtful expression, slight head tilt, focused gaze, contemplative',
+      surprised:
+        'pleasantly surprised, raised eyebrows, bright eyes, delighted discovery',
+      concerned:
+        'caring concerned look, slightly furrowed brow, empathetic expression',
+      proud:
+        'beaming with pride, confident smile, approving expression, celebrating success',
     };
 
     const genderDescriptions: Record<AvatarGender, string> = {

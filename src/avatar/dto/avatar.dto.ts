@@ -1,14 +1,26 @@
 import { z } from 'zod';
-import type { AvatarGender, AvatarPersonality, AvatarUrls, AvatarGenerationStatus } from '../avatar.types';
+import type {
+  AvatarGender,
+  AvatarPersonality,
+  AvatarUrls,
+  AvatarGenerationStatus,
+} from '../avatar.types';
 
 // ===== Request DTOs =====
 
 export const UpdateAvatarSettingsSchema = z.object({
   gender: z.enum(['female', 'male', 'neutral']),
-  personalityPreset: z.enum(['friendly', 'professional', 'caring', 'energetic']),
+  personalityPreset: z.enum([
+    'friendly',
+    'professional',
+    'caring',
+    'energetic',
+  ]),
 });
 
-export type UpdateAvatarSettingsDto = z.infer<typeof UpdateAvatarSettingsSchema>;
+export type UpdateAvatarSettingsDto = z.infer<
+  typeof UpdateAvatarSettingsSchema
+>;
 
 // ===== Response DTOs =====
 

@@ -1,4 +1,10 @@
-import { Inject, Injectable, Logger, OnModuleInit, ServiceUnavailableException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  Logger,
+  OnModuleInit,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { GoogleGenAI } from '@google/genai';
 import { MESSAGE_PORT, type MessagePort } from '../message/message.port';
 import { KNOWLEDGE_PORT, type KnowledgePort } from './knowledge.port';
@@ -24,7 +30,9 @@ export class TacitKnowledgeExtractorService implements OnModuleInit {
   onModuleInit(): void {
     const apiKey = process.env.GOOGLE_API_KEY;
     if (!apiKey) {
-      this.logger.warn('GOOGLE_API_KEY is not set. TacitKnowledgeExtractor is disabled.');
+      this.logger.warn(
+        'GOOGLE_API_KEY is not set. TacitKnowledgeExtractor is disabled.',
+      );
       return;
     }
     this.client = new GoogleGenAI({ apiKey });
@@ -39,11 +47,14 @@ export class TacitKnowledgeExtractorService implements OnModuleInit {
     range?: 'all' | 'recent',
   ): Promise<KCCandidate[]> {
     if (!this.client) {
-      throw new ServiceUnavailableException('TacitKnowledgeExtractor is not initialized (missing API key).');
+      throw new ServiceUnavailableException(
+        'TacitKnowledgeExtractor is not initialized (missing API key).',
+      );
     }
 
     // 1. メッセージ取得
-    const allMessages = await this.messagePort.findAllByConversation(conversationId);
+    const allMessages =
+      await this.messagePort.findAllByConversation(conversationId);
     if (allMessages.length === 0) {
       return [];
     }
@@ -62,9 +73,16 @@ export class TacitKnowledgeExtractorService implements OnModuleInit {
     }
 
     // 3. チャット履歴を文字列化（インデックス付き）
-    const baseIndex = startIndex ?? (range === 'recent' ? Math.max(0, allMessages.length - RECENT_MESSAGE_COUNT) : 0);
+    const baseIndex =
+      startIndex ??
+      (range === 'recent'
+        ? Math.max(0, allMessages.length - RECENT_MESSAGE_COUNT)
+        : 0);
     const chatHistory = messages
-      .map((m, i) => `[${baseIndex + i}][${m.role === 'ASSISTANT' ? 'AI' : '社員'}]: ${m.content}`)
+      .map(
+        (m, i) =>
+          `[${baseIndex + i}][${m.role === 'ASSISTANT' ? 'AI' : '社員'}]: ${m.content}`,
+      )
       .join('\n\n');
 
     // 4. LLM で暗黙知シグナル検出
@@ -93,7 +111,11 @@ export class TacitKnowledgeExtractorService implements OnModuleInit {
       }
 
       // 重複チェック (similarity >= 0.85 は重複とみなす)
-      const similar = await this.knowledgePort.searchSimilar(embedding, SIMILARITY_THRESHOLD, 1);
+      const similar = await this.knowledgePort.searchSimilar(
+        embedding,
+        SIMILARITY_THRESHOLD,
+        1,
+      );
       if (similar.length > 0) {
         this.logger.debug(
           `Skipping duplicate candidate "${item.title}" (similarity: ${similar[0].similarity})`,
@@ -107,6 +129,92 @@ export class TacitKnowledgeExtractorService implements OnModuleInit {
     return results;
   }
 
+  /**
+   * Story 2-6: トリガーコンテキスト付きで暗黙知検出
+   * トリガーが蓄積された場合に呼び出され、excerptを追加コンテキストとして渡す
+   */
+  async detectTacitKnowledgeWithContext(
+    conversationId: string,
+    triggerExcerpts: string[],
+  ): Promise<KCCandidate[]> {
+    if (!this.client) {
+      throw new ServiceUnavailableException(
+        'TacitKnowledgeExtractor is not initialized (missing API key).',
+      );
+    }
+
+    // 1. メッセージ取得
+    const allMessages =
+      await this.messagePort.findAllByConversation(conversationId);
+    if (allMessages.length === 0) {
+      return [];
+    }
+
+    // 2. チャット履歴を文字列化（インデックス付き）
+    const chatHistory = allMessages
+      .map(
+        (m, i) =>
+          `[${i}][${m.role === 'ASSISTANT' ? 'AI' : '社員'}]: ${m.content}`,
+      )
+      .join('\n\n');
+
+    // 3. トリガーコンテキストを追加
+    const triggerContext =
+      triggerExcerpts.length > 0
+        ? `\n\n【重要: 以下の発話は暗黙知トリガーとして検出されています。特に注目してください】\n${triggerExcerpts.map((e, i) => `${i + 1}. ${e}`).join('\n')}\n\n`
+        : '';
+
+    // 4. LLM で暗黙知シグナル検出（トリガーコンテキスト付き）
+    const llmCandidates = await this.callLlmForDetectionWithContext(
+      chatHistory,
+      triggerContext,
+    );
+
+    if (llmCandidates.length === 0) {
+      return [];
+    }
+
+    // 5. confidence < 0.5 フィルタ + 重複チェック
+    const results: KCCandidate[] = [];
+
+    for (const item of llmCandidates) {
+      if (item.confidence < MIN_CONFIDENCE) {
+        continue;
+      }
+
+      // embedding 生成（検出時: situation + knowhow で生成）
+      const textForEmbedding = `${item.situation} ${item.knowhow}`;
+      const embedding = await this.generateEmbedding(textForEmbedding);
+
+      if (embedding.length === 0) {
+        results.push(this.toLlmCandidate(item));
+        continue;
+      }
+
+      // 重複チェック
+      const similar = await this.knowledgePort.searchSimilar(
+        embedding,
+        SIMILARITY_THRESHOLD,
+        1,
+      );
+      if (similar.length > 0) {
+        this.logger.debug(
+          `Skipping duplicate candidate "${item.title}" (similarity: ${similar[0].similarity})`,
+        );
+        continue;
+      }
+
+      results.push(this.toLlmCandidate(item));
+    }
+
+    this.logger.log(
+      `[TacitKnowledgeExtractor] Found ${results.length} candidates with trigger context ` +
+        `(${triggerExcerpts.length} excerpts)`,
+    );
+
+    return results;
+  }
+
   private toLlmCandidate(item: LlmKCCandidate): KCCandidate {
     return {
       title: item.title,
@@ -116,17 +224,36 @@ export class TacitKnowledgeExtractorService implements OnModuleInit {
       tags: item.tags,
       confidence: item.confidence,
       sourceMessageRange: item.source_message_range
-        ? { start: item.source_message_range.start, end: item.source_message_range.end }
+        ? {
+            start: item.source_message_range.start,
+            end: item.source_message_range.end,
+          }
         : undefined,
     };
   }
 
-  private async callLlmForDetection(chatHistory: string): Promise<LlmKCCandidate[]> {
+  private async callLlmForDetection(
+    chatHistory: string,
+  ): Promise<LlmKCCandidate[]> {
+    return this.callLlmForDetectionWithContext(chatHistory, '');
+  }
+
+  /**
+   * Story 2-6: トリガーコンテキスト付きでLLM呼び出し
+   */
+  private async callLlmForDetectionWithContext(
+    chatHistory: string,
+    triggerContext: string,
+  ): Promise<LlmKCCandidate[]> {
     if (!this.client) {
       return [];
     }
 
     try {
+      const promptText = triggerContext
+        ? `${TACIT_KNOWLEDGE_DETECTION_PROMPT}${triggerContext}${chatHistory}`
+        : `${TACIT_KNOWLEDGE_DETECTION_PROMPT}${chatHistory}`;
+
       const response = await this.client.models.generateContent({
         model: 'gemini-2.5-flash',
         config: {
@@ -135,7 +262,7 @@ export class TacitKnowledgeExtractorService implements OnModuleInit {
         contents: [
           {
             role: 'user',
-            parts: [{ text: TACIT_KNOWLEDGE_DETECTION_PROMPT + chatHistory }],
+            parts: [{ text: promptText }],
           },
         ],
       });
@@ -143,7 +270,9 @@ export class TacitKnowledgeExtractorService implements OnModuleInit {
       const text = this.extractTextFromResponse(response);
       return this.parseLlmCandidates(text);
     } catch (error) {
-      this.logger.error(`LLM tacit knowledge detection failed: ${(error as Error).message}`);
+      this.logger.error(
+        `LLM tacit knowledge detection failed: ${(error as Error).message}`,
+      );
       return [];
     }
   }
@@ -153,7 +282,8 @@ export class TacitKnowledgeExtractorService implements OnModuleInit {
       return '';
     }
 
-    const maybeResponse = (response as { response?: unknown }).response ?? response;
+    const maybeResponse =
+      (response as { response?: unknown }).response ?? response;
     if (
       typeof maybeResponse === 'object' &&
       maybeResponse !== null &&
@@ -164,7 +294,9 @@ export class TacitKnowledgeExtractorService implements OnModuleInit {
 
     const candidates = this.findCandidates(response);
     for (const candidate of candidates) {
-      const content = (candidate as { content?: { parts?: Array<{ text?: string }> } }).content;
+      const content = (
+        candidate as { content?: { parts?: Array<{ text?: string }> } }
+      ).content;
       if (content?.parts) {
         for (const part of content.parts) {
           if (typeof part.text === 'string') {
@@ -187,7 +319,8 @@ export class TacitKnowledgeExtractorService implements OnModuleInit {
       return direct;
     }
 
-    const nested = (response as { response?: { candidates?: unknown } }).response?.candidates;
+    const nested = (response as { response?: { candidates?: unknown } })
+      .response?.candidates;
     if (Array.isArray(nested)) {
       return nested;
     }
@@ -201,7 +334,9 @@ export class TacitKnowledgeExtractorService implements OnModuleInit {
     }
 
     try {
-      const cleaned = text.replace(/```(?:json)?\s*([\s\S]*?)\s*```/i, '$1').trim();
+      const cleaned = text
+        .replace(/```(?:json)?\s*([\s\S]*?)\s*```/i, '$1')
+        .trim();
       const parsed = JSON.parse(cleaned);
 
       if (!Array.isArray(parsed)) {
@@ -231,7 +366,9 @@ export class TacitKnowledgeExtractorService implements OnModuleInit {
           source_message_range: item.source_message_range,
         }));
     } catch (error) {
-      this.logger.warn(`Failed to parse LLM detection response: ${(error as Error).message}`);
+      this.logger.warn(
+        `Failed to parse LLM detection response: ${(error as Error).message}`,
+      );
       return [];
     }
   }
@@ -250,10 +387,14 @@ export class TacitKnowledgeExtractorService implements OnModuleInit {
         contents: [{ parts: [{ text }] }],
       });
 
-      const embedding = (response as { embeddings?: Array<{ values?: number[] }> })?.embeddings?.[0]?.values;
+      const embedding = (
+        response as { embeddings?: Array<{ values?: number[] }> }
+      )?.embeddings?.[0]?.values;
       return embedding ?? [];
     } catch (error) {
-      this.logger.error(`Embedding generation failed: ${(error as Error).message}`);
+      this.logger.error(
+        `Embedding generation failed: ${(error as Error).message}`,
+      );
       return [];
     }
   }

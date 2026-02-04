@@ -1,8 +1,29 @@
 import type { KCCandidate, KCSourceType, KCStatus } from '../knowledge.types';
+import type { TriggerType } from '../../message/message.types';
 
 // POST /knowledge/detect-tacit レスポンス
 export interface DetectTacitKnowledgeResponse {
   candidates: KCCandidate[];
+}
+
+// GET /knowledge/trigger-status/:conversationId レスポンス (Story 2-6)
+export interface TriggerStatusResponse {
+  shouldGenerateKC: boolean;
+  totalTriggers: number;
+  triggerSummary: Array<{
+    triggerType: TriggerType;
+    count: number;
+    excerpts: string[];
+  }>;
+}
+
+// POST /knowledge/detect-tacit-with-triggers レスポンス (Story 2-6)
+export interface DetectTacitWithTriggersResponse {
+  candidates: KCCandidate[];
+  triggerContext: {
+    totalTriggers: number;
+    excerpts: string[];
+  };
 }
 
 // POST /knowledge/cards レスポンス

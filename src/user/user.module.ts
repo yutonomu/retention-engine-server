@@ -17,4 +17,4 @@ import { PersonalityPresetModule } from '../personality-preset/personalityPreset
   controllers: [UserController],
   exports: [UserService, USER_PORT],
 })
-export class UserModule { }
+export class UserModule {}

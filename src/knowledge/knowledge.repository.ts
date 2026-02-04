@@ -1,6 +1,10 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import type { KnowledgePort, KCListQuery, KCListResult } from './knowledge.port';
+import type {
+  KnowledgePort,
+  KCListQuery,
+  KCListResult,
+} from './knowledge.port';
 import type { KnowledgeCard, SimilarKC } from './knowledge.types';
 import type { SupabaseAdminClient } from '../supabase/adminClient';
 
@@ -17,14 +21,15 @@ export class KnowledgeRepository implements KnowledgePort {
   ) {}
 
   async create(
-    kc: Omit<KnowledgeCard, 'id' | 'created_at' | 'verified_at' | 'view_count' | 'useful_count'>,
+    kc: Omit<
+      KnowledgeCard,
+      'id' | 'created_at' | 'verified_at' | 'view_count' | 'useful_count'
+    >,
   ): Promise<KnowledgeCard> {
     const id = randomUUID();
 
     // embedding を文字列形式に変換（pgvector用）
-    const embeddingStr = kc.embedding
-      ? `[${kc.embedding.join(',')}]`
-      : null;
+    const embeddingStr = kc.embedding ? `[${kc.embedding.join(',')}]` : null;
 
     const { data, error } = await this.supabase
       .from('knowledge_cards')
@@ -99,7 +104,9 @@ export class KnowledgeRepository implements KnowledgePort {
     }
 
     if (query.search) {
-      qb = qb.or(`title.ilike.%${query.search}%,content.ilike.%${query.search}%`);
+      qb = qb.or(
+        `title.ilike.%${query.search}%,content.ilike.%${query.search}%`,
+      );
     }
 
     qb = qb.order('created_at', { ascending: false });
@@ -120,7 +127,18 @@ export class KnowledgeRepository implements KnowledgePort {
 
   async update(
     id: string,
-    data: Partial<Pick<KnowledgeCard, 'title' | 'content' | 'status' | 'tags' | 'embedding' | 'verifier_id' | 'verified_at'>>,
+    data: Partial<
+      Pick<
+        KnowledgeCard,
+        | 'title'
+        | 'content'
+        | 'status'
+        | 'tags'
+        | 'embedding'
+        | 'verifier_id'
+        | 'verified_at'
+      >
+    >,
   ): Promise<KnowledgeCard> {
     const updateData: Record<string, unknown> = {};
 
@@ -128,8 +146,10 @@ export class KnowledgeRepository implements KnowledgePort {
     if (data.content !== undefined) updateData.content = data.content;
     if (data.status !== undefined) updateData.status = data.status;
     if (data.tags !== undefined) updateData.tags = data.tags;
-    if (data.verifier_id !== undefined) updateData.verifier_id = data.verifier_id;
-    if (data.verified_at !== undefined) updateData.verified_at = data.verified_at;
+    if (data.verifier_id !== undefined)
+      updateData.verifier_id = data.verifier_id;
+    if (data.verified_at !== undefined)
+      updateData.verified_at = data.verified_at;
 
     if (data.embedding !== undefined) {
       updateData.embedding = data.embedding
@@ -159,14 +179,19 @@ export class KnowledgeRepository implements KnowledgePort {
   ): Promise<SimilarKC[]> {
     const embeddingStr = `[${embedding.join(',')}]`;
 
-    const { data, error } = await this.supabase.rpc('search_similar_knowledge_cards', {
-      query_embedding: embeddingStr,
-      similarity_threshold: threshold,
-      match_count: limit,
-    });
+    const { data, error } = await this.supabase.rpc(
+      'search_similar_knowledge_cards',
+      {
+        query_embedding: embeddingStr,
+        similarity_threshold: threshold,
+        match_count: limit,
+      },
+    );
 
     if (error) {
-      this.logger.error(`Failed to search similar knowledge cards: ${error.message}`);
+      this.logger.error(
+        `Failed to search similar knowledge cards: ${error.message}`,
+      );
       return [];
     }
 
@@ -179,7 +204,9 @@ export class KnowledgeRepository implements KnowledgePort {
     });
 
     if (error) {
-      this.logger.warn(`Failed to increment view_count for ${id}: ${error.message}`);
+      this.logger.warn(
+        `Failed to increment view_count for ${id}: ${error.message}`,
+      );
     }
   }
 
@@ -189,7 +216,9 @@ export class KnowledgeRepository implements KnowledgePort {
     });
 
     if (error) {
-      this.logger.warn(`Failed to increment useful_count for ${id}: ${error.message}`);
+      this.logger.warn(
+        `Failed to increment useful_count for ${id}: ${error.message}`,
+      );
     }
   }
 }

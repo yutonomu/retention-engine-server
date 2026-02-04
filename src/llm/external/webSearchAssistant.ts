@@ -175,9 +175,11 @@ ${question}
         model: 'gemini-2.5-flash',
         contents,
         config: {
-          tools: [{ 
-            googleSearch: {} 
-          }],
+          tools: [
+            {
+              googleSearch: {},
+            },
+          ],
         },
       });
 
@@ -193,7 +195,7 @@ ${question}
       this.logger.log(
         `Web search completed: sources=${sources.length} confidence=${confidence.toFixed(2)} answerLength=${answer.length}`,
       );
-      
+
       if (sources.length === 0) {
         this.logger.warn('Web検索結果が空です', {
           question: question.substring(0, 100),
@@ -324,12 +326,12 @@ ${question}
     }
 
     const candidates = resp?.candidates || [];
-    
+
     // candidatesが複数ある場合の警告
     if (candidates.length > 1) {
       this.logger.warn('Multiple candidates found in response', {
         candidatesCount: candidates.length,
-        finishReasons: candidates.map(c => c.finishReason),
+        finishReasons: candidates.map((c) => c.finishReason),
       });
     }
 
@@ -340,14 +342,14 @@ ${question}
     }
 
     const parts = firstCandidate.content?.parts || [];
-    
+
     // partsが複数ある場合の警告とログ
     if (parts.length > 1) {
       this.logger.warn('Multiple parts found in candidate', {
         partsCount: parts.length,
-        partLengths: parts.map(p => p.text?.length || 0),
+        partLengths: parts.map((p) => p.text?.length || 0),
       });
-      
+
       // 各パートの最初の100文字をログ出力
       parts.forEach((part, index) => {
         if (part.text) {
@@ -412,16 +414,16 @@ ${question}
             webKeys: Object.keys(chunk.web),
             web: chunk.web,
           });
-          
+
           // uri または url フィールドを確認
           const url = chunk.web.uri || (chunk.web as any).url || '';
-          
+
           const webSource = {
             title: chunk.web.title || 'Untitled',
             url: url,
             snippet: chunk.web.snippet || '',
           };
-          
+
           // URLが正しく設定されているか確認
           if (!webSource.url) {
             this.logger.warn('Web source URL is empty after extraction', {
@@ -429,7 +431,7 @@ ${question}
               extractedUrl: url,
             });
           }
-          
+
           sources.push(webSource);
         }
       }

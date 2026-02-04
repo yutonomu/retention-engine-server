@@ -21,7 +21,7 @@ import type {
 @UseGuards(JwtAuthGuard)
 export class ConversationController {
   // TODO: userIdやmentorIdをリクエストボディ/クエリではなく、req.userから取得するように修正する
-  constructor(private readonly conversationService: ConversationService) { }
+  constructor(private readonly conversationService: ConversationService) {}
 
   // ── Mentor AI Chat (멘토 본인의 AI 대화) ──
 
@@ -119,9 +119,6 @@ export class ConversationController {
       throw new BadRequestException('convId is required');
     }
 
-    await this.conversationService.deleteConversationForNewHire(
-      userId,
-      convId,
-    );
+    await this.conversationService.deleteConversationForNewHire(userId, convId);
   }
 }

@@ -24,7 +24,9 @@ export class GeneralKnowledgeAssistant {
 
   constructor(apiKey: string) {
     if (!apiKey) {
-      throw new Error('GOOGLE_API_KEY is required for GeneralKnowledgeAssistant');
+      throw new Error(
+        'GOOGLE_API_KEY is required for GeneralKnowledgeAssistant',
+      );
     }
     this.ai = new GoogleGenAI({ apiKey });
   }
@@ -43,7 +45,8 @@ export class GeneralKnowledgeAssistant {
 
     const contents = [
       ...history.map((msg) => ({
-        role: msg.userRole === 'NEW_HIRE' ? ('user' as const) : ('model' as const),
+        role:
+          msg.userRole === 'NEW_HIRE' ? ('user' as const) : ('model' as const),
         parts: [{ text: msg.content }],
       })),
       {
@@ -72,11 +75,15 @@ export class GeneralKnowledgeAssistant {
           ...((requestConfig.config as object) || {}),
           cachedContent: options.cachedContentName,
         };
-        this.logger.log(`Using Gemini cached content: ${options.cachedContentName}`);
+        this.logger.log(
+          `Using Gemini cached content: ${options.cachedContentName}`,
+        );
       }
 
       const response = await this.ai.models.generateContent(
-        requestConfig as unknown as Parameters<typeof this.ai.models.generateContent>[0],
+        requestConfig as unknown as Parameters<
+          typeof this.ai.models.generateContent
+        >[0],
       );
 
       const answer = this.extractText(response);
@@ -97,7 +104,9 @@ export class GeneralKnowledgeAssistant {
           `General knowledge answer generated: length=${answer.length}, cachedTokens=${cachedTokenCount}`,
         );
       } else {
-        this.logger.log(`General knowledge answer generated: length=${answer.length}`);
+        this.logger.log(
+          `General knowledge answer generated: length=${answer.length}`,
+        );
       }
 
       return { answer, message, cachedContentTokenCount: cachedTokenCount };
@@ -183,7 +192,9 @@ export class GeneralKnowledgeAssistant {
   async classifyQuestionType(
     question: string,
   ): Promise<{ needsFileSearch: boolean; reason: string }> {
-    this.logger.log(`Classifying question type: "${question.substring(0, 30)}..." (DEBUG: forcing FileSearch)`);
+    this.logger.log(
+      `Classifying question type: "${question.substring(0, 30)}..." (DEBUG: forcing FileSearch)`,
+    );
 
     // デバッグ用：常に社内検索を実行
     return { needsFileSearch: true, reason: 'デバッグモード' };
@@ -192,7 +203,10 @@ export class GeneralKnowledgeAssistant {
   /**
    * 質問分類結果パース
    */
-  private parseClassification(answer: string): { needsFileSearch: boolean; reason: string } {
+  private parseClassification(answer: string): {
+    needsFileSearch: boolean;
+    reason: string;
+  } {
     try {
       const jsonMatch = answer.match(/\{[\s\S]*?\}/);
       if (!jsonMatch) {
@@ -272,7 +286,10 @@ JSON以外の出力は不要です。
   /**
    * LLM判定結果パース
    */
-  private parseJudgment(answer: string): { sufficient: boolean; reason: string } {
+  private parseJudgment(answer: string): {
+    sufficient: boolean;
+    reason: string;
+  } {
     try {
       const jsonMatch = answer.match(/\{[\s\S]*?\}/);
       if (!jsonMatch) {

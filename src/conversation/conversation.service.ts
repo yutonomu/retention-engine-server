@@ -27,7 +27,7 @@ export class ConversationService {
     private readonly userRepository: UserPort,
     @Inject(MENTOR_ASSIGNMENT_PORT)
     private readonly mentorAssignmentRepository: MentorAssignmentPort,
-  ) { }
+  ) {}
 
   async getConversationListByNewHire(
     userId: string,
@@ -151,8 +151,10 @@ export class ConversationService {
       );
     }
 
-    const conversations =
-      await this.conversationRepository.findByOwnerAndType(mentorId, 'mentor_ai_chat');
+    const conversations = await this.conversationRepository.findByOwnerAndType(
+      mentorId,
+      'mentor_ai_chat',
+    );
 
     return conversations.map((c) => ({
       conv_id: c.conv_id,

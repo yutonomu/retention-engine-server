@@ -110,12 +110,16 @@ export class InMemoryCacheService {
       // Double-check: ロック取得中に他のリクエストがキャッシュを埋めた可能性
       const rechecked = this.systemPromptCache.get(cacheKey);
       if (rechecked && rechecked.expiresAt > Date.now()) {
-        this.logger.debug(`System prompt cache HIT after lock for userId=${userId}`);
+        this.logger.debug(
+          `System prompt cache HIT after lock for userId=${userId}`,
+        );
         return rechecked.value;
       }
 
       // 新規生成
-      this.logger.log(`System prompt cache MISS for userId=${userId}, generating...`);
+      this.logger.log(
+        `System prompt cache MISS for userId=${userId}, generating...`,
+      );
       const value = await generator();
 
       // キャッシュに保存
@@ -125,7 +129,9 @@ export class InMemoryCacheService {
         createdAt: Date.now(),
       });
 
-      this.logger.log(`System prompt cached for userId=${userId}, TTL=${this.TTL.SYSTEM_PROMPT}ms`);
+      this.logger.log(
+        `System prompt cached for userId=${userId}, TTL=${this.TTL.SYSTEM_PROMPT}ms`,
+      );
       return value;
     } finally {
       release();
@@ -144,7 +150,9 @@ export class InMemoryCacheService {
     // キャッシュヒット確認
     const cached = this.conversationCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
-      this.logger.debug(`Conversation cache HIT for conversationId=${conversationId}`);
+      this.logger.debug(
+        `Conversation cache HIT for conversationId=${conversationId}`,
+      );
       return cached.value as T[];
     }
 
@@ -155,12 +163,16 @@ export class InMemoryCacheService {
       // Double-check
       const rechecked = this.conversationCache.get(cacheKey);
       if (rechecked && rechecked.expiresAt > Date.now()) {
-        this.logger.debug(`Conversation cache HIT after lock for conversationId=${conversationId}`);
+        this.logger.debug(
+          `Conversation cache HIT after lock for conversationId=${conversationId}`,
+        );
         return rechecked.value as T[];
       }
 
       // 新規生成
-      this.logger.log(`Conversation cache MISS for conversationId=${conversationId}, loading...`);
+      this.logger.log(
+        `Conversation cache MISS for conversationId=${conversationId}, loading...`,
+      );
       const value = await generator();
 
       // キャッシュに保存
@@ -190,7 +202,9 @@ export class InMemoryCacheService {
       cached.value.push(message);
       // TTL延長
       cached.expiresAt = Date.now() + this.TTL.CONVERSATION;
-      this.logger.debug(`Message appended to conversation cache: conversationId=${conversationId}`);
+      this.logger.debug(
+        `Message appended to conversation cache: conversationId=${conversationId}`,
+      );
     }
   }
 
@@ -212,7 +226,9 @@ export class InMemoryCacheService {
       deletedCount++;
     }
     if (deletedCount > 0) {
-      this.logger.log(`System prompt cache invalidated for userId=${userId} (${deletedCount} entries)`);
+      this.logger.log(
+        `System prompt cache invalidated for userId=${userId} (${deletedCount} entries)`,
+      );
     }
   }
 
@@ -223,7 +239,9 @@ export class InMemoryCacheService {
     const cacheKey = `conversation:${conversationId}`;
     const deleted = this.conversationCache.delete(cacheKey);
     if (deleted) {
-      this.logger.log(`Conversation cache invalidated for conversationId=${conversationId}`);
+      this.logger.log(
+        `Conversation cache invalidated for conversationId=${conversationId}`,
+      );
     }
   }
 
@@ -249,12 +267,16 @@ export class InMemoryCacheService {
       // Double-check
       const rechecked = this.webSearchCache.get(cacheKey);
       if (rechecked && rechecked.expiresAt > Date.now()) {
-        this.logger.debug(`Web search cache HIT after lock for key=${cacheKey}`);
+        this.logger.debug(
+          `Web search cache HIT after lock for key=${cacheKey}`,
+        );
         return rechecked.value as T;
       }
 
       // 新規生成
-      this.logger.log(`Web search cache MISS for key=${cacheKey}, generating...`);
+      this.logger.log(
+        `Web search cache MISS for key=${cacheKey}, generating...`,
+      );
       const value = await generator();
 
       // キャッシュに保存
@@ -264,7 +286,9 @@ export class InMemoryCacheService {
         createdAt: Date.now(),
       });
 
-      this.logger.log(`Web search cached for key=${cacheKey}, TTL=${this.TTL.WEB_SEARCH}ms`);
+      this.logger.log(
+        `Web search cached for key=${cacheKey}, TTL=${this.TTL.WEB_SEARCH}ms`,
+      );
       return value;
     } finally {
       release();
@@ -284,7 +308,10 @@ export class InMemoryCacheService {
       systemPromptCount: this.systemPromptCache.size,
       conversationCount: this.conversationCache.size,
       webSearchCount: this.webSearchCache.size,
-      totalEntries: this.systemPromptCache.size + this.conversationCache.size + this.webSearchCache.size,
+      totalEntries:
+        this.systemPromptCache.size +
+        this.conversationCache.size +
+        this.webSearchCache.size,
     };
   }
 
@@ -329,9 +356,12 @@ export class InMemoryCacheService {
    */
   private startCleanupInterval(): void {
     // 5分ごとにクリーンアップ
-    this.cleanupInterval = setInterval(() => {
-      this.cleanup();
-    }, 5 * 60 * 1000);
+    this.cleanupInterval = setInterval(
+      () => {
+        this.cleanup();
+      },
+      5 * 60 * 1000,
+    );
 
     this.logger.log('Cache cleanup interval started (every 5 minutes)');
   }

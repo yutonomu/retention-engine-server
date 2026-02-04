@@ -4,8 +4,6 @@ import type { PersonalityPresetId } from '../personality-preset/personalityPrese
 export type { MbtiType };
 export { VALID_MBTI_TYPES };
 
-
-
 export interface UserProps {
   user_id: string;
   role: UserRole;

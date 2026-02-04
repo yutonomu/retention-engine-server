@@ -252,7 +252,8 @@ export class GeminiTextService implements OnModuleInit {
     // response.response.candidates 접근
     const nestedResponse = (response as { response?: unknown }).response;
     if (typeof nestedResponse === 'object' && nestedResponse !== null) {
-      const nestedCandidates = (nestedResponse as { candidates?: unknown }).candidates;
+      const nestedCandidates = (nestedResponse as { candidates?: unknown })
+        .candidates;
       if (Array.isArray(nestedCandidates)) {
         return nestedCandidates;
       }

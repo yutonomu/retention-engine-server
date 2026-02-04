@@ -10,7 +10,11 @@ async function bootstrap() {
     'http://localhost:3001',
     'http://localhost:5000',
   ];
-  const envOrigins = config.get<string>('CORS_ORIGIN')?.split(',').map((o) => o.trim()) ?? [];
+  const envOrigins =
+    config
+      .get<string>('CORS_ORIGIN')
+      ?.split(',')
+      .map((o) => o.trim()) ?? [];
   const corsOrigins = [...new Set([...defaultOrigins, ...envOrigins])];
 
   app.enableCors({

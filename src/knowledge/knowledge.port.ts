@@ -1,4 +1,9 @@
-import type { KnowledgeCard, KCStatus, KCSourceType, SimilarKC } from './knowledge.types';
+import type {
+  KnowledgeCard,
+  KCStatus,
+  KCSourceType,
+  SimilarKC,
+} from './knowledge.types';
 
 export const KNOWLEDGE_PORT = Symbol('KNOWLEDGE_PORT');
 
@@ -21,7 +26,12 @@ export interface KnowledgePort {
   /**
    * ナレッジカードを保存
    */
-  create(kc: Omit<KnowledgeCard, 'id' | 'created_at' | 'verified_at' | 'view_count' | 'useful_count'>): Promise<KnowledgeCard>;
+  create(
+    kc: Omit<
+      KnowledgeCard,
+      'id' | 'created_at' | 'verified_at' | 'view_count' | 'useful_count'
+    >,
+  ): Promise<KnowledgeCard>;
 
   /**
    * IDで取得
@@ -36,7 +46,21 @@ export interface KnowledgePort {
   /**
    * 更新（内容・ステータス変更）
    */
-  update(id: string, data: Partial<Pick<KnowledgeCard, 'title' | 'content' | 'status' | 'tags' | 'embedding' | 'verifier_id' | 'verified_at'>>): Promise<KnowledgeCard>;
+  update(
+    id: string,
+    data: Partial<
+      Pick<
+        KnowledgeCard,
+        | 'title'
+        | 'content'
+        | 'status'
+        | 'tags'
+        | 'embedding'
+        | 'verifier_id'
+        | 'verified_at'
+      >
+    >,
+  ): Promise<KnowledgeCard>;
 
   /**
    * ベクトル類似検索で重複候補を検索

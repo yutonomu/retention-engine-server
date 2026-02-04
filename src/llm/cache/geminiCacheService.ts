@@ -98,7 +98,9 @@ export class GeminiCacheService {
 
     // Gemini APIにキャッシュ作成
     try {
-      this.logger.log(`Creating Gemini cache for userId=${userId}, model=${model}`);
+      this.logger.log(
+        `Creating Gemini cache for userId=${userId}, model=${model}`,
+      );
 
       const cache = await this.ai.caches.create({
         model,
@@ -177,7 +179,9 @@ export class GeminiCacheService {
       await this.deleteCache(cacheName);
     }
 
-    this.logger.log(`Invalidated ${toDelete.length} caches for userId=${userId}`);
+    this.logger.log(
+      `Invalidated ${toDelete.length} caches for userId=${userId}`,
+    );
   }
 
   /**
@@ -226,7 +230,7 @@ export class GeminiCacheService {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
+      hash = (hash << 5) - hash + char;
       hash = hash & hash;
     }
     return Math.abs(hash).toString(36);
@@ -268,9 +272,12 @@ export class GeminiCacheService {
    * 定期クリーンアップ開始
    */
   private startCleanupInterval(): void {
-    setInterval(() => {
-      this.cleanup();
-    }, 10 * 60 * 1000); // 10分ごと
+    setInterval(
+      () => {
+        this.cleanup();
+      },
+      10 * 60 * 1000,
+    ); // 10分ごと
 
     this.logger.log('Gemini cache cleanup interval started (every 10 minutes)');
   }

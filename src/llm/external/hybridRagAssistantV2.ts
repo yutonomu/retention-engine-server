@@ -5,12 +5,18 @@ import {
   type FileSearchAnswerResult,
   type FileDocument,
 } from './fileSearchAssistant';
-import { WebSearchAssistant, type WebSource, type WebSearchResult } from './webSearchAssistant';
+import {
+  WebSearchAssistant,
+  type WebSource,
+  type WebSearchResult,
+} from './webSearchAssistant';
 import { GeneralKnowledgeAssistant } from './generalKnowledgeAssistant';
 import type { Message } from '../../Entity/Message';
 import { createUUID, type UUID } from '../../common/uuid';
-import { ResponseType, type FileSearchSource } from '../dto/llmGenerateResponse.dto';
-import type { SSEEvent } from '../dto/sseEvent.types';
+import {
+  ResponseType,
+  type FileSearchSource,
+} from '../dto/llmGenerateResponse.dto';
 import { InMemoryCacheService } from '../cache/inMemoryCacheService';
 
 export type HybridAnswerResult = {
@@ -75,7 +81,7 @@ export class HybridRagAssistant extends FileSearchAssistant {
         requireWebSearch: options.requireWebSearch,
         ragAnswerLength: ragResult.answer.length,
       });
-      
+
       try {
         const enhancedResult = await this.enhanceWithWebSearch(
           question,
@@ -93,7 +99,7 @@ export class HybridRagAssistant extends FileSearchAssistant {
           stack: error.stack,
           question,
         });
-        
+
         // Web検索失敗時は社内RAGの結果にエラーメッセージを追加
         return {
           ...ragResult,
@@ -296,13 +302,17 @@ ${ragAnswer}
   ): Promise<HybridAnswerResult> {
     // キャッシュキーの生成（question + ragAnswerのハッシュ）
     const cacheKey = this.generateCacheKey(originalQuestion, ragAnswer);
-    
+
     // キャッシュチェック
     const cached = await this.cacheService.getOrCreateWebSearch(
       cacheKey,
       async () => {
         // Web検索補強の実行
-        return await this.executeWebEnhancement(originalQuestion, ragAnswer, options);
+        return await this.executeWebEnhancement(
+          originalQuestion,
+          ragAnswer,
+          options,
+        );
       },
     );
 
@@ -326,7 +336,7 @@ ${ragAnswer}
     // 現在の年月を取得
     const currentYear = new Date().getFullYear();
     const currentMonth = new Date().getMonth() + 1;
-    
+
     const enhancementPrompt = `
 あなたは最新情報検索の専門家です。
 現在は${currentYear}年${currentMonth}月です。
@@ -374,7 +384,7 @@ ${ragAnswer}
     this.logger.log('WebAssistant.searchを呼び出します', {
       promptLength: enhancementPrompt.length,
     });
-    
+
     const webResult = await this.withTimeout(
       this.webAssistant.search(enhancementPrompt, {
         systemInstruction: options.systemInstruction,
@@ -382,7 +392,7 @@ ${ragAnswer}
       TIMEOUT.WEB_SEARCH,
       'Web search timeout',
     );
-    
+
     this.logger.log('WebAssistant.searchが完了', {
       hasAnswer: !!webResult.answer,
       answerLength: webResult.answer?.length || 0,
@@ -407,9 +417,16 @@ ${ragAnswer}
   /**
    * 補強された回答のフォーマット
    */
-  private formatEnhancedAnswer(ragAnswer: string, webResult: WebSearchResult): string {
+  private formatEnhancedAnswer(
+    ragAnswer: string,
+    webResult: WebSearchResult,
+  ): string {
     // Web検索結果が実質的な内容を含んでいるか確認
-    if (!webResult.answer || webResult.answer.length < 100 || webResult.confidence < 0.3) {
+    if (
+      !webResult.answer ||
+      webResult.answer.length < 100 ||
+      webResult.confidence < 0.3
+    ) {
       // Web検索結果が不十分な場合は社内RAGのみ返す
       return ragAnswer;
     }
@@ -428,7 +445,7 @@ ${ragAnswer}
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
+      hash = (hash << 5) - hash + char;
       hash = hash & hash;
     }
     return `web_search_${Math.abs(hash).toString(36)}`;

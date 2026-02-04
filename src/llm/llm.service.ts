@@ -15,13 +15,24 @@ import type { UUID } from '../common/uuid';
 import * as path from 'path';
 import { MBTI_COMMUNICATION_STYLES } from '../user/mbti.types';
 import { PersonalityPresetService } from '../personality-preset/personalityPreset.service';
-import { PersonalityPreset, type PersonalityPresetId, toPersonalityPresetId } from '../personality-preset/personalityPreset.types';
-import { ResponseType, type WebSource, type FileSearchSource } from './dto/llmGenerateResponse.dto';
-import type { SSEEvent } from './dto/sseEvent.types';
+import {
+  PersonalityPreset,
+  type PersonalityPresetId,
+  toPersonalityPresetId,
+} from '../personality-preset/personalityPreset.types';
+import {
+  ResponseType,
+  type WebSource,
+  type FileSearchSource,
+} from './dto/llmGenerateResponse.dto';
 import type { HybridAnswerResult } from './external/hybridRagAssistantV2';
 import { InMemoryCacheService } from './cache/inMemoryCacheService';
 import { GeminiCacheService } from './cache/geminiCacheService';
 import { MENTOR_KNOWLEDGE_ELICITATION_INSTRUCTION } from './prompts';
+import {
+  TRIGGER_DETECTION_INSTRUCTION,
+  type TriggerDetectionResult,
+} from './prompts/tacitKnowledgeTriggers';
 
 // FILE_SEARCH_INSTRUCTIONを定数として定義（改善版）
 const FILE_SEARCH_INSTRUCTION = `
@@ -103,6 +114,8 @@ export type LlmGenerateResult = {
     fileSearch?: FileSearchSource[];
     webSearch?: WebSource[];
   };
+  // Story 2-6: 暗黙知トリガー検出結果
+  triggerDetection?: TriggerDetectionResult;
 };
 
 export type UploadDocumentCommand = {
@@ -111,6 +124,54 @@ export type UploadDocumentCommand = {
   mimeType?: string;
   id?: UUID;
 };
+
+/**
+ * Story 2-6: 応答テキストからトリガー検出結果を抽出するユーティリティ
+ */
+interface ParsedTriggerResponse {
+  cleanAnswer: string;
+  triggerDetection?: TriggerDetectionResult;
+}
+
+function parseTriggerDetectionFromResponse(
+  answer: string,
+): ParsedTriggerResponse {
+  const startMarker = '---TRIGGER_DETECTION_START---';
+  const endMarker = '---TRIGGER_DETECTION_END---';
+
+  const startIndex = answer.indexOf(startMarker);
+  const endIndex = answer.indexOf(endMarker);
+
+  // トリガーマーカーが見つからない場合は元のテキストを返す
+  if (startIndex === -1 || endIndex === -1 || startIndex >= endIndex) {
+    return { cleanAnswer: answer };
+  }
+
+  // マーカーの前後でテキストを分割
+  const cleanAnswer = (
+    answer.slice(0, startIndex) + answer.slice(endIndex + endMarker.length)
+  ).trim();
+
+  // JSON部分を抽出
+  const jsonText = answer
+    .slice(startIndex + startMarker.length, endIndex)
+    .trim();
+
+  try {
+    const parsed = JSON.parse(jsonText);
+    const triggerDetection: TriggerDetectionResult = {
+      detected: Boolean(parsed.detected),
+      triggerType: parsed.triggerType ?? null,
+      confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0,
+      excerpt: parsed.excerpt ?? null,
+      followUpQuestion: parsed.followUpQuestion ?? undefined,
+    };
+    return { cleanAnswer, triggerDetection };
+  } catch (e) {
+    // JSONパース失敗時は元のテキストを返す（マーカー部分は除去）
+    return { cleanAnswer };
+  }
+}
 
 @Injectable()
 export class LlmService {
@@ -128,13 +189,13 @@ export class LlmService {
     private readonly personalityPresetService: PersonalityPresetService,
     private readonly inMemoryCacheService: InMemoryCacheService,
     private readonly geminiCacheService: GeminiCacheService,
-  ) { }
+  ) {}
 
   async generate(command: LlmGenerateCommand): Promise<LlmGenerateResult> {
     // デバッグ: サービスレベルでの重複処理検出
     const serviceRequestId = `svc-${Date.now()}-${Math.random().toString(36).substring(7)}`;
     const stackTrace = new Error().stack?.split('\n').slice(1, 5).join('\n');
-    
+
     this.logger.log(
       `[${serviceRequestId}] Processing LLM generate command: ` +
         `webSearch=${command.requireWebSearch} ` +
@@ -142,7 +203,7 @@ export class LlmService {
         `promptLength=${command.prompt.length} ` +
         `timestamp=${new Date().toISOString()}`,
     );
-    
+
     this.logger.debug(
       `[${serviceRequestId}] Service stack trace: ${stackTrace}`,
     );
@@ -169,44 +230,49 @@ export class LlmService {
     }
 
     // キャッシュを通じた会話履歴取得
-    const history = await this.inMemoryCacheService.getOrCreateConversation<Message>(
-      command.conversationId.toString(),
-      async () => {
-        const messages = await this.messagePort.findAllByConversation(
-          command.conversationId.toString(),
-        );
-        return messages as unknown as Message[];
-      },
-    );
+    const history =
+      await this.inMemoryCacheService.getOrCreateConversation<Message>(
+        command.conversationId.toString(),
+        async () => {
+          const messages = await this.messagePort.findAllByConversation(
+            command.conversationId.toString(),
+          );
+          return messages as unknown as Message[];
+        },
+      );
 
     this.logger.log(
       `Loaded conversation history conversationId="${command.conversationId}" count=${history.length}`,
     );
 
     // キャッシュを通じたシステムプロンプト生成（NEW_HIRE role）
-    const systemInstruction = await this.inMemoryCacheService.getOrCreateSystemPrompt(
-      `${conversation.owner_id}:NEW_HIRE`,
-      async () => this.generateSystemPrompt(conversation.owner_id, 'NEW_HIRE'),
-    );
+    const systemInstruction =
+      await this.inMemoryCacheService.getOrCreateSystemPrompt(
+        `${conversation.owner_id}:NEW_HIRE`,
+        async () =>
+          this.generateSystemPrompt(conversation.owner_id, 'NEW_HIRE'),
+      );
 
     // Gemini Context Caching試行（トークンコスト削減）
     let geminiCacheName: string | null = null;
     try {
-      geminiCacheName = await this.geminiCacheService.getOrCreateSystemPromptCache(
-        `${conversation.owner_id}:NEW_HIRE`,
-        systemInstruction,
-        'gemini-2.0-flash',
-      );
+      geminiCacheName =
+        await this.geminiCacheService.getOrCreateSystemPromptCache(
+          `${conversation.owner_id}:NEW_HIRE`,
+          systemInstruction,
+          'gemini-2.0-flash',
+        );
       if (geminiCacheName) {
         this.logger.log(`Gemini cache ready: ${geminiCacheName}`);
       }
     } catch (error) {
-      this.logger.warn('Failed to create Gemini cache, proceeding without caching', error);
+      this.logger.warn(
+        'Failed to create Gemini cache, proceeding without caching',
+        error,
+      );
     }
 
-    this.logger.log(
-      `System prompt ready for userId=${conversation.owner_id}`,
-    );
+    this.logger.log(`System prompt ready for userId=${conversation.owner_id}`);
 
     const userMessage: Message = {
       messageId: createUUID(),
@@ -423,7 +489,9 @@ export class LlmService {
   /**
    * メンターAI対話用 — メンターの暗黙知を引き出す対話を生成
    */
-  async generateForMentor(command: MentorLlmGenerateCommand): Promise<LlmGenerateResult> {
+  async generateForMentor(
+    command: MentorLlmGenerateCommand,
+  ): Promise<LlmGenerateResult> {
     const conversation = await this.conversationPort.findById(
       command.conversationId.toString(),
     );
@@ -443,39 +511,45 @@ export class LlmService {
       );
     }
 
-    const history = await this.inMemoryCacheService.getOrCreateConversation<Message>(
-      command.conversationId.toString(),
-      async () => {
-        const messages = await this.messagePort.findAllByConversation(
-          command.conversationId.toString(),
-        );
-        return messages as unknown as Message[];
-      },
-    );
+    const history =
+      await this.inMemoryCacheService.getOrCreateConversation<Message>(
+        command.conversationId.toString(),
+        async () => {
+          const messages = await this.messagePort.findAllByConversation(
+            command.conversationId.toString(),
+          );
+          return messages as unknown as Message[];
+        },
+      );
 
     this.logger.log(
       `[MentorAI] Loaded history conversationId="${command.conversationId}" count=${history.length}`,
     );
 
     // キャッシュを通じたシステムプロンプト生成（MENTOR role）
-    const systemInstruction = await this.inMemoryCacheService.getOrCreateSystemPrompt(
-      `${conversation.owner_id}:MENTOR`,
-      async () => this.generateSystemPrompt(conversation.owner_id, 'MENTOR'),
-    );
+    const systemInstruction =
+      await this.inMemoryCacheService.getOrCreateSystemPrompt(
+        `${conversation.owner_id}:MENTOR`,
+        async () => this.generateSystemPrompt(conversation.owner_id, 'MENTOR'),
+      );
 
     // Gemini Context Caching試行（トークンコスト削減）
     let geminiCacheName: string | null = null;
     try {
-      geminiCacheName = await this.geminiCacheService.getOrCreateSystemPromptCache(
-        `${conversation.owner_id}:MENTOR`,
-        systemInstruction,
-        'gemini-2.0-flash',
-      );
+      geminiCacheName =
+        await this.geminiCacheService.getOrCreateSystemPromptCache(
+          `${conversation.owner_id}:MENTOR`,
+          systemInstruction,
+          'gemini-2.0-flash',
+        );
       if (geminiCacheName) {
         this.logger.log(`[MentorAI] Gemini cache ready: ${geminiCacheName}`);
       }
     } catch (error) {
-      this.logger.warn('[MentorAI] Failed to create Gemini cache, proceeding without caching', error);
+      this.logger.warn(
+        '[MentorAI] Failed to create Gemini cache, proceeding without caching',
+        error,
+      );
     }
 
     this.logger.log(
@@ -503,15 +577,29 @@ export class LlmService {
         },
       )) as HybridAnswerResult;
 
+      // Story 2-6: トリガー検出結果をパース
+      const parsed = parseTriggerDetectionFromResponse(result.answer);
+
       llmResult = {
         type: result.type,
-        answer: result.answer,
+        answer: parsed.cleanAnswer,
         message: {
           ...result.message,
           userRole: 'ASSISTANT',
+          content: parsed.cleanAnswer,
         },
         sources: result.sources,
+        triggerDetection: parsed.triggerDetection,
       };
+
+      // トリガー検出結果をログに出力
+      if (parsed.triggerDetection?.detected) {
+        this.logger.log(
+          `[MentorAI] Trigger detected in response: ` +
+            `type=${parsed.triggerDetection.triggerType} ` +
+            `confidence=${parsed.triggerDetection.confidence}`,
+        );
+      }
     } catch (error) {
       this.logger.error(
         `[MentorAI] Failed to generate answer conversationId="${command.conversationId}"`,
@@ -547,12 +635,17 @@ export class LlmService {
   /**
    * ユーザーのプリセット設定に基づいてシステムプロンプトを生成
    * 二層構造: FILE_SEARCH_INSTRUCTION (ベース) + PersonalityPreset (性格)
-   * 
+   *
    * FILE_SEARCH_INSTRUCTIONは常にプロンプトに含まれます（プリセットの有無に関わらず）
    */
-  private async generateSystemPrompt(userId: string, role: 'NEW_HIRE' | 'MENTOR' = 'NEW_HIRE'): Promise<string> {
+  private async generateSystemPrompt(
+    userId: string,
+    role: 'NEW_HIRE' | 'MENTOR' = 'NEW_HIRE',
+  ): Promise<string> {
     // 1. ユーザーのプリセット設定を取得
-    const presetId = await this.userPort.getUserPersonalityPreset(userId) || toPersonalityPresetId('default_assistant');
+    const presetId =
+      (await this.userPort.getUserPersonalityPreset(userId)) ||
+      toPersonalityPresetId('default_assistant');
 
     // 2. MBTI情報を取得
     const userMbti = await this.userPort.getUserMbti(userId);
@@ -572,7 +665,9 @@ export class LlmService {
 
     if (!targetPreset) {
       // フォールバック：デフォルトプリセット
-      const defaultPreset = this.personalityPresetService.findById(toPersonalityPresetId('default_assistant'));
+      const defaultPreset = this.personalityPresetService.findById(
+        toPersonalityPresetId('default_assistant'),
+      );
       if (defaultPreset) {
         targetPreset = defaultPreset;
       }
@@ -580,18 +675,27 @@ export class LlmService {
 
     // プリセットがある場合は、性格プリセットを含めた完全なプロンプトを構築
     if (targetPreset) {
-      return this.buildSystemPromptFromPreset(targetPreset, mbtiInstruction, role);
+      return this.buildSystemPromptFromPreset(
+        targetPreset,
+        mbtiInstruction,
+        role,
+      );
     }
 
-    // プリセットが全く見つからない場合でも、FILE_SEARCH_INSTRUCTIONは必ず含める
-    const elicitationInstruction = role === 'MENTOR'
-      ? MENTOR_KNOWLEDGE_ELICITATION_INSTRUCTION
-      : KNOWLEDGE_ELICITATION_INSTRUCTION;
+    // プリセットが全く見つからない場合のフォールバック
+    const elicitationInstruction =
+      role === 'MENTOR'
+        ? MENTOR_KNOWLEDGE_ELICITATION_INSTRUCTION
+        : KNOWLEDGE_ELICITATION_INSTRUCTION;
+
+    // メンター役割の場合、暗黙知トリガー検出インストラクションを追加
+    const triggerDetectionLayer =
+      role === 'MENTOR' ? `\n\n---\n\n${TRIGGER_DETECTION_INSTRUCTION}` : '';
 
     this.logger.warn(
       `No personality preset found for userId=${userId}, using FILE_SEARCH_INSTRUCTION only`,
     );
-    return `${FILE_SEARCH_INSTRUCTION}\n\n---\n\n${elicitationInstruction}${mbtiInstruction}`;
+    return `${FILE_SEARCH_INSTRUCTION}\n\n---\n\n${elicitationInstruction}${triggerDetectionLayer}${mbtiInstruction}`;
   }
 
   /**
@@ -600,7 +704,11 @@ export class LlmService {
    * @param mbtiInstruction MBTIに基づく追加指示（ある場合）
    * @returns 完全なシステムプロンプト（ベース層 + 性格層 + MBTI層）
    */
-  private buildSystemPromptFromPreset(preset: PersonalityPreset, mbtiInstruction: string, role: 'NEW_HIRE' | 'MENTOR' = 'NEW_HIRE'): string {
+  private buildSystemPromptFromPreset(
+    preset: PersonalityPreset,
+    mbtiInstruction: string,
+    role: 'NEW_HIRE' | 'MENTOR' = 'NEW_HIRE',
+  ): string {
     // 性格層のプロンプト
     const personalityPrompt = `
 あなたは社内新人教育向けの RAG ベース AI アシスタントです。
@@ -624,12 +732,21 @@ ${preset.systemPromptCore}
 `.trim();
 
     // 役割に応じた暗黙知引き出し指示を選択
-    const elicitationInstruction = role === 'MENTOR'
-      ? MENTOR_KNOWLEDGE_ELICITATION_INSTRUCTION
-      : KNOWLEDGE_ELICITATION_INSTRUCTION;
+    const elicitationInstruction =
+      role === 'MENTOR'
+        ? MENTOR_KNOWLEDGE_ELICITATION_INSTRUCTION
+        : KNOWLEDGE_ELICITATION_INSTRUCTION;
 
-    // ベース層（事実確認）+ 深掘り層（暗黙知引き出し）+ 性格層（口調・スタイル）+ MBTI層（個別最適化）
-    return `${FILE_SEARCH_INSTRUCTION}\n\n---\n\n${elicitationInstruction}\n\n---\n\n${personalityPrompt}${mbtiInstruction}`;
+    // メンター役割の場合、暗黙知トリガー検出インストラクションを追加
+    const triggerDetectionLayer =
+      role === 'MENTOR' ? `\n\n---\n\n${TRIGGER_DETECTION_INSTRUCTION}` : '';
+
+    // 4層プロンプト構造:
+    // [Layer 1] FILE_SEARCH_INSTRUCTION (共通 — RAG)
+    // [Layer 2] elicitationInstruction (役割別 — 暗黙知引き出し)
+    // [Layer 3] TRIGGER_DETECTION_INSTRUCTION (メンターのみ — トリガー検出)
+    // [Layer 4] PersonalityPreset + MBTI (共通)
+    return `${FILE_SEARCH_INSTRUCTION}\n\n---\n\n${elicitationInstruction}${triggerDetectionLayer}\n\n---\n\n${personalityPrompt}${mbtiInstruction}`;
   }
 
   async uploadDocument(command: UploadDocumentCommand): Promise<void> {

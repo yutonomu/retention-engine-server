@@ -1,5 +1,11 @@
-import { Body, Controller, Header, Logger, Post, Res, UseGuards, UsePipes } from '@nestjs/common';
-import type { Response } from 'express';
+import {
+  Body,
+  Controller,
+  Logger,
+  Post,
+  UseGuards,
+  UsePipes,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { llmGenerateRequestSchema } from './dto/llmGenerateRequest.dto';
 import type { LlmGenerateRequestDto } from './dto/llmGenerateRequest.dto';
@@ -31,7 +37,7 @@ export class LlmController {
     // デバッグ: リクエストIDを生成して重複処理を検出
     const requestId = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
     const stackTrace = new Error().stack?.split('\n').slice(1, 5).join('\n');
-    
+
     this.logger.log(
       `[${requestId}] Received LLM generate request: ` +
         `question="${payload.question.substring(0, 50)}..." ` +
@@ -39,10 +45,8 @@ export class LlmController {
         `conversationId=${payload.conversationId} ` +
         `timestamp=${new Date().toISOString()}`,
     );
-    
-    this.logger.debug(
-      `[${requestId}] Request stack trace: ${stackTrace}`,
-    );
+
+    this.logger.debug(`[${requestId}] Request stack trace: ${stackTrace}`);
 
     const command: LlmGenerateCommand = {
       prompt: payload.question,
@@ -51,11 +55,11 @@ export class LlmController {
     };
 
     const result = await this.llmService.generate(command);
-    
-    const totalSources = 
-      (result.sources?.fileSearch?.length ?? 0) + 
+
+    const totalSources =
+      (result.sources?.fileSearch?.length ?? 0) +
       (result.sources?.webSearch?.length ?? 0);
-    
+
     this.logger.log(
       `[${requestId}] Completed LLM generate request: ` +
         `type=${result.type} ` +
@@ -138,10 +142,21 @@ export class LlmController {
 
     const result = await this.llmService.generateForMentor(command);
 
+    // Story 2-6: トリガー検出結果をログに記録
+    if (result.triggerDetection?.detected) {
+      this.logger.log(
+        `[MentorAI] Trigger detected: type=${result.triggerDetection.triggerType} ` +
+          `confidence=${result.triggerDetection.confidence} ` +
+          `excerpt="${result.triggerDetection.excerpt?.substring(0, 30)}..."`,
+      );
+    }
+
     return {
       type: result.type,
       answer: result.answer,
       sources: result.sources,
+      // Story 2-6: 暗黙知トリガー検出結果
+      triggerDetection: result.triggerDetection,
     };
   }
 

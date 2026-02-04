@@ -6,15 +6,15 @@ import { JsonPersonalityPresetRepository } from './repositories/jsonPersonalityP
 import { PERSONALITY_PRESET_REPOSITORY } from './repositories/personalityPreset.port';
 
 @Module({
-    imports: [AuthModule],
-    controllers: [PersonalityPresetController],
-    providers: [
-        PersonalityPresetService,
-        {
-            provide: PERSONALITY_PRESET_REPOSITORY,
-            useClass: JsonPersonalityPresetRepository,
-        },
-    ],
-    exports: [PersonalityPresetService],
+  imports: [AuthModule],
+  controllers: [PersonalityPresetController],
+  providers: [
+    PersonalityPresetService,
+    {
+      provide: PERSONALITY_PRESET_REPOSITORY,
+      useClass: JsonPersonalityPresetRepository,
+    },
+  ],
+  exports: [PersonalityPresetService],
 })
-export class PersonalityPresetModule { }
+export class PersonalityPresetModule {}

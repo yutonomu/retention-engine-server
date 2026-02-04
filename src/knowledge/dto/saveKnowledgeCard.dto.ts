@@ -1,7 +1,7 @@
 export interface SaveKCCandidateDto {
   title: string;
-  situation: string;  // 状況
-  knowhow: string;    // ノウハウ
+  situation: string; // 状況
+  knowhow: string; // ノウハウ
   precaution: string; // 注意点
   tags: string[];
   confidence: number;

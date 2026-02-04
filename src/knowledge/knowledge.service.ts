@@ -1,5 +1,15 @@
 import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { KNOWLEDGE_PORT, type KnowledgePort, type KCListQuery, type KCListResult } from './knowledge.port';
+import {
+  KNOWLEDGE_PORT,
+  type KnowledgePort,
+  type KCListQuery,
+  type KCListResult,
+} from './knowledge.port';
+import {
+  MESSAGE_PORT,
+  type MessagePort,
+  type TriggerAggregation,
+} from '../message/message.port';
 import { TacitKnowledgeExtractorService } from './tacitKnowledgeExtractor.service';
 import type { KnowledgeCard, KCCandidate } from './knowledge.types';
 import { composeKCContent } from './knowledge.types';
@@ -7,6 +17,8 @@ import type { DetectTacitKnowledgeDto } from './dto/detectTacitKnowledge.dto';
 import type { SaveKnowledgeCardDto } from './dto/saveKnowledgeCard.dto';
 
 const SIMILARITY_THRESHOLD = 0.85;
+// Story 2-6: KC生成をトリガーするために必要な最小トリガー数
+const MIN_TRIGGERS_FOR_KC_GENERATION = 3;
 
 @Injectable()
 export class KnowledgeService {
@@ -15,6 +27,8 @@ export class KnowledgeService {
   constructor(
     @Inject(KNOWLEDGE_PORT)
     private readonly knowledgePort: KnowledgePort,
+    @Inject(MESSAGE_PORT)
+    private readonly messagePort: MessagePort,
     private readonly extractor: TacitKnowledgeExtractorService,
   ) {}
 
@@ -29,6 +43,81 @@ export class KnowledgeService {
       dto.startIndex,
       dto.range,
     );
+  }
+
+  /**
+   * Story 2-6: トリガー蓄積状況を確認してKC生成が必要かチェック
+   * @param conversationId 会話ID
+   * @returns トリガー蓄積情報とKC生成推奨フラグ
+   */
+  async checkTriggerThreshold(conversationId: string): Promise<{
+    shouldGenerateKC: boolean;
+    totalTriggers: number;
+    triggerSummary: TriggerAggregation[];
+  }> {
+    const triggers =
+      await this.messagePort.aggregateTriggersByConversation(conversationId);
+    const totalTriggers = triggers.reduce((sum, t) => sum + t.count, 0);
+
+    return {
+      shouldGenerateKC: totalTriggers >= MIN_TRIGGERS_FOR_KC_GENERATION,
+      totalTriggers,
+      triggerSummary: triggers,
+    };
+  }
+
+  /**
+   * Story 2-6: トリガーコンテキスト付きで暗黙知検出
+   * トリガーが蓄積された場合に呼び出され、excerptを追加コンテキストとして渡す
+   */
+  async detectTacitKnowledgeWithTriggerContext(
+    conversationId: string,
+  ): Promise<{
+    candidates: KCCandidate[];
+    triggerContext: {
+      totalTriggers: number;
+      excerpts: string[];
+    };
+  }> {
+    // 1. トリガー蓄積情報を取得
+    const triggers =
+      await this.messagePort.aggregateTriggersByConversation(conversationId);
+    const totalTriggers = triggers.reduce((sum, t) => sum + t.count, 0);
+    const allExcerpts = triggers.flatMap((t) => t.excerpts);
+
+    this.logger.log(
+      `[KC Detection] Starting with trigger context: ` +
+        `conversationId=${conversationId} totalTriggers=${totalTriggers}`,
+    );
+
+    // 2. トリガーが閾値未満の場合は通常検出
+    if (totalTriggers < MIN_TRIGGERS_FOR_KC_GENERATION) {
+      this.logger.debug(
+        `[KC Detection] Trigger threshold not met (${totalTriggers}/${MIN_TRIGGERS_FOR_KC_GENERATION})`,
+      );
+      const candidates =
+        await this.extractor.detectTacitKnowledge(conversationId);
+      return {
+        candidates,
+        triggerContext: { totalTriggers, excerpts: allExcerpts },
+      };
+    }
+
+    // 3. トリガーコンテキストを含めて検出（excerptを使って優先度を上げる）
+    // TacitKnowledgeExtractorに追加コンテキストとしてexcerptsを渡す
+    const candidates = await this.extractor.detectTacitKnowledgeWithContext(
+      conversationId,
+      allExcerpts,
+    );
+
+    this.logger.log(
+      `[KC Detection] Found ${candidates.length} candidates with ${totalTriggers} triggers`,
+    );
+
+    return {
+      candidates,
+      triggerContext: { totalTriggers, excerpts: allExcerpts },
+    };
   }
 
   /**
@@ -52,7 +141,11 @@ export class KnowledgeService {
 
     // 重複チェック
     if (embedding.length > 0) {
-      const similar = await this.knowledgePort.searchSimilar(embedding, SIMILARITY_THRESHOLD, 1);
+      const similar = await this.knowledgePort.searchSimilar(
+        embedding,
+        SIMILARITY_THRESHOLD,
+        1,
+      );
       if (similar.length > 0) {
         this.logger.warn(
           `Duplicate KC detected (similarity: ${similar[0].similarity}). Saving anyway with warning.`,
@@ -73,7 +166,10 @@ export class KnowledgeService {
       confidence: candidate.confidence ?? null,
       source_conversation_id: conversationId,
       source_message_range: candidate.sourceMessageRange
-        ? { start_index: candidate.sourceMessageRange.start, end_index: candidate.sourceMessageRange.end }
+        ? {
+            start_index: candidate.sourceMessageRange.start,
+            end_index: candidate.sourceMessageRange.end,
+          }
         : null,
       embedding: embedding.length > 0 ? embedding : null,
     });
@@ -134,7 +230,11 @@ export class KnowledgeService {
     }
 
     // situation/knowhow/precaution のいずれかが変わったら content 再合成
-    if (data.situation !== undefined || data.knowhow !== undefined || data.precaution !== undefined) {
+    if (
+      data.situation !== undefined ||
+      data.knowhow !== undefined ||
+      data.precaution !== undefined
+    ) {
       // 既存のcontentからセクションを抽出
       const sections = this.parseKCContent(existing.content);
       const newContent = composeKCContent({

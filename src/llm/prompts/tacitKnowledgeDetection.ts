@@ -115,6 +115,13 @@ export const KC_CANDIDATE_RESPONSE_SCHEMA = {
         required: ['start', 'end'],
       },
     },
-    required: ['title', 'situation', 'knowhow', 'precaution', 'tags', 'confidence'],
+    required: [
+      'title',
+      'situation',
+      'knowhow',
+      'precaution',
+      'tags',
+      'confidence',
+    ],
   },
 };

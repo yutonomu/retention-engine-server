@@ -49,7 +49,8 @@ export class FeedbackDocumentService {
     // Geminiが生成したタイトルをファイル名に使用（検索しやすくするため）
     const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const shortId = feedback.fb_id.slice(0, 8);
-    const sanitizedTitle = this.sanitizeFileName(summaryResult.title) || 'mentor-feedback';
+    const sanitizedTitle =
+      this.sanitizeFileName(summaryResult.title) || 'mentor-feedback';
     const displayName = `${sanitizedTitle}_${timestamp}_${shortId}.txt`;
     const filePath = path.resolve(process.cwd(), 'resources', displayName);
 
@@ -104,8 +105,8 @@ export class FeedbackDocumentService {
   private sanitizeFileName(title: string): string {
     return title
       .replace(/[\\/:*?"<>|]/g, '') // Windows/Unix で使えない文字を除去
-      .replace(/\s+/g, '-')         // スペースをハイフンに
-      .slice(0, 50)                  // 長すぎる場合は切り詰め
-      .replace(/-+$/, '');           // 末尾のハイフンを除去
+      .replace(/\s+/g, '-') // スペースをハイフンに
+      .slice(0, 50) // 長すぎる場合は切り詰め
+      .replace(/-+$/, ''); // 末尾のハイフンを除去
   }
 }

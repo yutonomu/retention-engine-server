@@ -5,13 +5,17 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { MessagePort, PaginatedMessages } from './message.port';
+import type {
+  MessagePort,
+  PaginatedMessages,
+  TriggerAggregation,
+} from './message.port';
 import { MESSAGE_PORT } from './message.port';
 import type { ConversationPort } from '../conversation/conversation.port';
 import { CONVERSATION_PORT } from '../conversation/conversation.port';
 import { MENTOR_ASSIGNMENT_PORT } from '../mentor-assignment/mentor-assignment.port';
 import type { MentorAssignmentPort } from '../mentor-assignment/mentor-assignment.port';
-import type { Message } from './message.types';
+import type { Message, TriggerType } from './message.types';
 
 @Injectable()
 export class MessageService {
@@ -53,6 +57,10 @@ export class MessageService {
     convId: string;
     role: Message['role'];
     content: string;
+    // Story 2-6: トリガーメタデータ
+    triggerType?: TriggerType | null;
+    triggerConfidence?: number | null;
+    triggerExcerpt?: string | null;
   }): Promise<Message> {
     if (!input.convId?.trim()) {
       throw new BadRequestException('convId is required');
@@ -64,7 +72,9 @@ export class MessageService {
     if (!trimmedContent) {
       throw new BadRequestException('content must not be empty');
     }
-    const conversation = await this.conversationRepository.findById(input.convId);
+    const conversation = await this.conversationRepository.findById(
+      input.convId,
+    );
     if (!conversation) {
       throw new NotFoundException(`Conversation ${input.convId} not found`);
     }
@@ -72,7 +82,22 @@ export class MessageService {
       convId: input.convId,
       role: input.role,
       content: trimmedContent,
+      triggerType: input.triggerType ?? null,
+      triggerConfidence: input.triggerConfidence ?? null,
+      triggerExcerpt: input.triggerExcerpt ?? null,
     });
+  }
+
+  /**
+   * 会話内のトリガー集計 (Story 2-6)
+   */
+  async aggregateTriggersByConversation(
+    convId: string,
+  ): Promise<TriggerAggregation[]> {
+    if (!convId?.trim()) {
+      throw new BadRequestException('convId is required');
+    }
+    return this.messageRepository.aggregateTriggersByConversation(convId);
   }
 
   async getMessagesForMentor(

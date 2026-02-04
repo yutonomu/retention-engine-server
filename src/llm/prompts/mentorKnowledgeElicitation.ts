@@ -18,7 +18,9 @@ import { CONSTRUCTION_TACIT_KNOWLEDGE_EXAMPLES } from './constructionDomainPatte
 function buildFewShotBlock(): string {
   const lines: string[] = [];
 
-  for (const [categoryKey, category] of Object.entries(CONSTRUCTION_TACIT_KNOWLEDGE_EXAMPLES)) {
+  for (const [categoryKey, category] of Object.entries(
+    CONSTRUCTION_TACIT_KNOWLEDGE_EXAMPLES,
+  )) {
     lines.push(`＜${category.label}＞`);
 
     if (category.sensoryToQuantitative) {

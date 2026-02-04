@@ -5,7 +5,11 @@ import type { MbtiType } from './mbti.types';
 import type { UserPort } from './user.port';
 import type { SupabaseAdminClient } from '../supabase/adminClient';
 import { PersonalityPresetService } from '../personality-preset/personalityPreset.service';
-import { PersonalityPreset, type PersonalityPresetId, toPersonalityPresetId } from '../personality-preset/personalityPreset.types';
+import {
+  PersonalityPreset,
+  type PersonalityPresetId,
+  toPersonalityPresetId,
+} from '../personality-preset/personalityPreset.types';
 
 @Injectable()
 export class UserService implements UserPort {
@@ -16,7 +20,7 @@ export class UserService implements UserPort {
     @Inject('SUPABASE_ADMIN_CLIENT')
     private readonly supabase: SupabaseAdminClient,
     private readonly personalityPresetService: PersonalityPresetService,
-  ) { }
+  ) {}
 
   async getUsers(): Promise<User[]> {
     const { data, error } = await this.supabase.from('user').select();
@@ -84,11 +88,15 @@ export class UserService implements UserPort {
     return user.mbti;
   }
 
-  async getUserPersonalityPreset(userId: string): Promise<PersonalityPresetId | null> {
+  async getUserPersonalityPreset(
+    userId: string,
+  ): Promise<PersonalityPresetId | null> {
     const user = await this.findUserById(userId);
     if (!user) {
       // 유저가 없는 경우 null 반환 (유령 계정 등 엣지 케이스 대응)
-      console.warn(`[UserService] User not found for getUserPersonalityPreset: ${userId}`);
+      console.warn(
+        `[UserService] User not found for getUserPersonalityPreset: ${userId}`,
+      );
       return null;
     }
     return user.personalityPresetId;
@@ -130,7 +138,9 @@ export class UserService implements UserPort {
       disabled_at: row.disabled_at,
       mbti: row.mbti,
       // DBのスネークケースをキャメルケースに変換し、PersonalityPresetId型に変換
-      personalityPresetId: row.personality_preset_id ? toPersonalityPresetId(row.personality_preset_id) : null,
+      personalityPresetId: row.personality_preset_id
+        ? toPersonalityPresetId(row.personality_preset_id)
+        : null,
     };
   }
 }

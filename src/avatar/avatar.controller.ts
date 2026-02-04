@@ -31,11 +31,15 @@ export class AvatarController {
   ): Promise<GetAvatarSettingsResponseDto> {
     const userId = req.user.sub;
     if (!userId) {
-      throw new HttpException('Unauthorized: userId is required', HttpStatus.UNAUTHORIZED);
+      throw new HttpException(
+        'Unauthorized: userId is required',
+        HttpStatus.UNAUTHORIZED,
+      );
     }
 
     try {
-      const { settings, avatarUrls } = await this.avatarService.getSettings(userId);
+      const { settings, avatarUrls } =
+        await this.avatarService.getSettings(userId);
 
       return {
         userId,
@@ -67,7 +71,10 @@ export class AvatarController {
   ): Promise<GetAvatarSettingsResponseDto> {
     const userId = req.user.sub;
     if (!userId) {
-      throw new HttpException('Unauthorized: userId is required', HttpStatus.UNAUTHORIZED);
+      throw new HttpException(
+        'Unauthorized: userId is required',
+        HttpStatus.UNAUTHORIZED,
+      );
     }
 
     let validatedData: UpdateAvatarSettingsDto;
@@ -114,7 +121,10 @@ export class AvatarController {
   ): Promise<GenerateAvatarResponseDto> {
     const userId = req.user.sub;
     if (!userId) {
-      throw new HttpException('Unauthorized: userId is required', HttpStatus.UNAUTHORIZED);
+      throw new HttpException(
+        'Unauthorized: userId is required',
+        HttpStatus.UNAUTHORIZED,
+      );
     }
 
     try {
@@ -150,7 +160,10 @@ export class AvatarController {
   ): Promise<GetAvatarStatusResponseDto> {
     const userId = req.user.sub;
     if (!userId) {
-      throw new HttpException('Unauthorized: userId is required', HttpStatus.UNAUTHORIZED);
+      throw new HttpException(
+        'Unauthorized: userId is required',
+        HttpStatus.UNAUTHORIZED,
+      );
     }
 
     try {
