@@ -75,58 +75,6 @@ export class LlmController {
   }
 
   @UsePipes(new ZodValidationPipe(llmGenerateRequestSchema))
-  @Post('generate/stream')
-  @Header('Content-Type', 'text/event-stream')
-  @Header('Cache-Control', 'no-cache')
-  @Header('Connection', 'keep-alive')
-  async generateStream(
-    @Body() payload: LlmGenerateRequestDto,
-    @Res() res: Response,
-  ) {
-    const requestId = `stream-${Date.now()}-${Math.random().toString(36).substring(7)}`;
-    this.logger.log(
-      `[${requestId}] Received LLM generate/stream request: ` +
-        `question="${payload.question.substring(0, 50)}..." ` +
-        `webSearch=${payload.requireWebSearch} ` +
-        `conversationId=${payload.conversationId}`,
-    );
-
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.setHeader('X-Accel-Buffering', 'no');
-    res.flushHeaders();
-
-    const command: LlmGenerateCommand = {
-      prompt: payload.question,
-      conversationId: payload.conversationId as UUID,
-      requireWebSearch: payload.requireWebSearch ?? false,
-    };
-
-    try {
-      for await (const event of this.llmService.generateStream(command)) {
-        res.write(`data: ${JSON.stringify(event)}\n\n`);
-      }
-    } catch (error) {
-      this.logger.error(`[${requestId}] Stream error`, error);
-      const errorEvent = {
-        type: 'error',
-        data: 'ストリーミングエラーが発生しました',
-        metadata: {
-          error: {
-            code: 'STREAM_ERROR',
-            message: error instanceof Error ? error.message : 'Unknown error',
-            retryable: true,
-          },
-        },
-      };
-      res.write(`data: ${JSON.stringify(errorEvent)}\n\n`);
-    } finally {
-      res.end();
-    }
-  }
-
-  @UsePipes(new ZodValidationPipe(llmGenerateRequestSchema))
   @Post('mentor/generate')
   async mentorGenerate(@Body() payload: LlmGenerateRequestDto) {
     this.logger.log(

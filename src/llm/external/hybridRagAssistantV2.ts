@@ -18,6 +18,7 @@ import {
   type FileSearchSource,
 } from '../dto/llmGenerateResponse.dto';
 import { InMemoryCacheService } from '../cache/inMemoryCacheService';
+import type { SSEEvent } from '../dto/sseEvent.types';
 
 export type HybridAnswerResult = {
   type: ResponseType;
