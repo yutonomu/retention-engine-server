@@ -26,6 +26,7 @@ import {
   type FileSearchSource,
 } from './dto/llmGenerateResponse.dto';
 import type { HybridAnswerResult } from './external/hybridRagAssistantV2';
+import { HybridRagAssistant } from './external/hybridRagAssistantV2';
 import { InMemoryCacheService } from './cache/inMemoryCacheService';
 import { GeminiCacheService } from './cache/geminiCacheService';
 import { MENTOR_KNOWLEDGE_ELICITATION_INSTRUCTION } from './prompts';
@@ -33,6 +34,7 @@ import {
   TRIGGER_DETECTION_INSTRUCTION,
   type TriggerDetectionResult,
 } from './prompts/tacitKnowledgeTriggers';
+import type { SSEEvent } from './dto/sseEvent.types';
 
 // FILE_SEARCH_INSTRUCTIONを定数として定義（改善版）
 const FILE_SEARCH_INSTRUCTION = `
@@ -600,6 +602,142 @@ ${preset.systemPromptCore}
     // [Layer 3] TRIGGER_DETECTION_INSTRUCTION (メンターのみ — トリガー検出)
     // [Layer 4] PersonalityPreset + MBTI (共通)
     return `${FILE_SEARCH_INSTRUCTION}\n\n---\n\n${elicitationInstruction}${triggerDetectionLayer}\n\n---\n\n${personalityPrompt}${mbtiInstruction}`;
+  }
+
+  /**
+   * ストリーミング版 generate — SSEイベントを逐次返す
+   */
+  async *generateStream(
+    command: LlmGenerateCommand,
+  ): AsyncGenerator<SSEEvent> {
+    const conversation = await this.conversationPort.findById(
+      command.conversationId.toString(),
+    );
+
+    if (!conversation || !conversation.owner_id) {
+      yield {
+        type: 'error',
+        data: '会話が見つかりませんでした。',
+        metadata: {
+          error: {
+            code: 'CONVERSATION_NOT_FOUND',
+            message: '会話が見つかりませんでした。新しい会話を開始してください。',
+            retryable: false,
+          },
+        },
+      };
+      return;
+    }
+
+    const history =
+      await this.inMemoryCacheService.getOrCreateConversation<Message>(
+        command.conversationId.toString(),
+        async () => {
+          const messages = await this.messagePort.findAllByConversation(
+            command.conversationId.toString(),
+          );
+          return messages as unknown as Message[];
+        },
+      );
+
+    const systemInstruction =
+      await this.inMemoryCacheService.getOrCreateSystemPrompt(
+        `${conversation.owner_id}:NEW_HIRE`,
+        async () =>
+          this.generateSystemPrompt(conversation.owner_id, 'NEW_HIRE'),
+      );
+
+    let geminiCacheName: string | null = null;
+    try {
+      geminiCacheName =
+        await this.geminiCacheService.getOrCreateSystemPromptCache(
+          `${conversation.owner_id}:NEW_HIRE`,
+          systemInstruction,
+          'gemini-2.0-flash',
+        );
+    } catch {
+      // キャッシュ作成失敗は無視して続行
+    }
+
+    const userMessage: Message = {
+      messageId: createUUID(),
+      conversationId: command.conversationId,
+      userRole: 'NEW_HIRE',
+      content: command.prompt,
+      createdAt: new Date(),
+    };
+
+    // HybridRagAssistant のストリーミングメソッドを呼び出す
+    const hybrid = this.fileSearchAssistant as HybridRagAssistant;
+    if (typeof hybrid.answerQuestionStream !== 'function') {
+      // ストリーミング非対応の場合はフォールバック
+      this.logger.warn(
+        'fileSearchAssistant does not support streaming, falling back to non-streaming',
+      );
+      const result = await this.generate(command);
+      yield { type: 'chunk', data: result.answer };
+      if (result.sources) {
+        yield {
+          type: 'sources',
+          data: '',
+          metadata: { sources: result.sources },
+        };
+      }
+      yield { type: 'done', data: '' };
+      return;
+    }
+
+    let fullAnswer = '';
+    try {
+      for await (const event of hybrid.answerQuestionStream(command.prompt, {
+        conversationId: command.conversationId,
+        history: [...(history as unknown as Message[]), userMessage],
+        systemInstruction,
+        requireWebSearch: command.requireWebSearch,
+        geminiCacheName: geminiCacheName ?? undefined,
+      })) {
+        if (event.type === 'chunk') {
+          fullAnswer += event.data;
+        }
+        yield event;
+      }
+    } catch (error) {
+      this.logger.error('Streaming generation failed', error as Error);
+      yield {
+        type: 'error',
+        data: '回答生成中にエラーが発生しました。',
+        metadata: {
+          error: {
+            code: 'GENERATION_ERROR',
+            message: (error as Error).message,
+            retryable: true,
+          },
+        },
+      };
+      return;
+    }
+
+    // ストリーム完了後にキャッシュのみ更新（DB保存はフロントエンドが担当:
+    //   ユーザーメッセージ → createUserMessage API
+    //   アシスタントメッセージ → finalizeAssistantMessage API）
+    try {
+      this.inMemoryCacheService.appendToConversation(
+        command.conversationId.toString(),
+        userMessage,
+      );
+      this.inMemoryCacheService.appendToConversation(
+        command.conversationId.toString(),
+        {
+          messageId: createUUID(),
+          conversationId: command.conversationId,
+          userRole: 'ASSISTANT',
+          content: fullAnswer,
+          createdAt: new Date(),
+        },
+      );
+    } catch (error) {
+      this.logger.error('Failed to update cache after streaming', error);
+    }
   }
 
   async uploadDocument(command: UploadDocumentCommand): Promise<void> {

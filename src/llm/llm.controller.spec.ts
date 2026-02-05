@@ -139,7 +139,7 @@ describe('LlmController', () => {
       const payload = {
         question: 'Hello',
         conversationId: '123e4567-e89b-12d3-a456-426614174000',
-        // requireWebSearch not provided, should default to false
+        requireWebSearch: false, // default value
       };
 
       const result = await controller.generate(payload);

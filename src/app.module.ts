@@ -13,6 +13,7 @@ import { AuthModule } from './auth/auth.module';
 import { PersonalityPresetModule } from './personality-preset/personalityPreset.module';
 import { AvatarModule } from './avatar/avatar.module';
 import { KnowledgeModule } from './knowledge/knowledge.module';
+import { QuestionCardModule } from './question-card/question-card.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { KnowledgeModule } from './knowledge/knowledge.module';
     PersonalityPresetModule,
     AvatarModule,
     KnowledgeModule,
+    QuestionCardModule,
   ],
   controllers: [AppController],
   providers: [AppService],

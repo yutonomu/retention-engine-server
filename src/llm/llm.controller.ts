@@ -3,9 +3,11 @@ import {
   Controller,
   Logger,
   Post,
+  Res,
   UseGuards,
   UsePipes,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { llmGenerateRequestSchema } from './dto/llmGenerateRequest.dto';
 import type { LlmGenerateRequestDto } from './dto/llmGenerateRequest.dto';
@@ -106,6 +108,55 @@ export class LlmController {
       // Story 2-6: 暗黙知トリガー検出結果
       triggerDetection: result.triggerDetection,
     };
+  }
+
+  @UsePipes(new ZodValidationPipe(llmGenerateRequestSchema))
+  @Post('generate/stream')
+  async generateStream(
+    @Body() payload: LlmGenerateRequestDto,
+    @Res() res: Response,
+  ) {
+    this.logger.log(
+      `[Stream] Received LLM stream request: ` +
+        `question="${payload.question.substring(0, 50)}..." ` +
+        `webSearch=${payload.requireWebSearch} ` +
+        `conversationId=${payload.conversationId}`,
+    );
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
+
+    const command: LlmGenerateCommand = {
+      prompt: payload.question,
+      conversationId: payload.conversationId as UUID,
+      requireWebSearch: payload.requireWebSearch ?? false,
+    };
+
+    try {
+      for await (const event of this.llmService.generateStream(command)) {
+        res.write(`data: ${JSON.stringify(event)}\n\n`);
+      }
+    } catch (error) {
+      this.logger.error('[Stream] Unexpected error during streaming', error);
+      const errorEvent = {
+        type: 'error',
+        data: '予期しないエラーが発生しました。',
+        metadata: {
+          error: {
+            code: 'INTERNAL_ERROR',
+            message:
+              error instanceof Error ? error.message : 'Unknown error',
+            retryable: true,
+          },
+        },
+      };
+      res.write(`data: ${JSON.stringify(errorEvent)}\n\n`);
+    } finally {
+      res.end();
+    }
   }
 
   @Post('documentUpload')
