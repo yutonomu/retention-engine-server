@@ -29,12 +29,25 @@ import type { HybridAnswerResult } from './external/hybridRagAssistantV2';
 import { HybridRagAssistant } from './external/hybridRagAssistantV2';
 import { InMemoryCacheService } from './cache/inMemoryCacheService';
 import { GeminiCacheService } from './cache/geminiCacheService';
-import { MENTOR_KNOWLEDGE_ELICITATION_INSTRUCTION } from './prompts';
+import {
+  MENTOR_KNOWLEDGE_ELICITATION_INSTRUCTION,
+  TRIGGER_DETECTION_V2_INSTRUCTION,
+  buildHearingContinuationPrompt,
+  parseTriggerDetectionV2,
+  parseHearingContinuationResult,
+} from './prompts';
 import {
   TRIGGER_DETECTION_INSTRUCTION,
   type TriggerDetectionResult,
 } from './prompts/tacitKnowledgeTriggers';
 import type { SSEEvent } from './dto/sseEvent.types';
+import { TriggerSessionService } from '../trigger-session/triggerSession.service';
+import type {
+  TriggerSession,
+  TriggerSessionResponse,
+  KCCandidate,
+  TriggerType,
+} from '../trigger-session/triggerSession.types';
 
 // FILE_SEARCH_INSTRUCTIONを定数として定義（改善版）
 const FILE_SEARCH_INSTRUCTION = `
@@ -116,8 +129,10 @@ export type LlmGenerateResult = {
     fileSearch?: FileSearchSource[];
     webSearch?: WebSource[];
   };
-  // Story 2-6: 暗黙知トリガー検出結果
+  // Story 2-6: 暗黙知トリガー検出結果 (v1 호환)
   triggerDetection?: TriggerDetectionResult;
+  // Story 2-10: 자동 히어링 세션 응답
+  triggerSession?: TriggerSessionResponse;
 };
 
 export type UploadDocumentCommand = {
@@ -191,6 +206,7 @@ export class LlmService {
     private readonly personalityPresetService: PersonalityPresetService,
     private readonly inMemoryCacheService: InMemoryCacheService,
     private readonly geminiCacheService: GeminiCacheService,
+    private readonly triggerSessionService: TriggerSessionService,
   ) {}
 
   async generate(command: LlmGenerateCommand): Promise<LlmGenerateResult> {
@@ -343,6 +359,10 @@ export class LlmService {
 
   /**
    * メンターAI対話用 — メンターの暗黙知を引き出す対話を生成
+   *
+   * Story 2-10: V2自動ヒアリングモード対応
+   * - 活性TriggerSessionがない → V2トリガー検出モード
+   * - 活性TriggerSessionがある → ヒアリング継続モード
    */
   async generateForMentor(
     command: MentorLlmGenerateCommand,
@@ -381,35 +401,61 @@ export class LlmService {
       `[MentorAI] Loaded history conversationId="${command.conversationId}" count=${history.length}`,
     );
 
-    // キャッシュを通じたシステムプロンプト生成（MENTOR role）
+    // Story 2-10: 活性TriggerSessionの確認
+    const activeSession = this.triggerSessionService.findActiveSession(
+      command.conversationId,
+    );
+
+    // ヒアリング継続モード vs トリガー検出モード
+    if (activeSession) {
+      return this.continueHearingSession(
+        command,
+        conversation,
+        history as unknown as Message[],
+        activeSession,
+      );
+    }
+
+    // V2トリガー検出モード（デフォルト）
+    return this.generateWithTriggerDetectionV2(
+      command,
+      conversation,
+      history as unknown as Message[],
+    );
+  }
+
+  /**
+   * Story 2-10: V2トリガー検出モードでの応答生成
+   *
+   * トリガー検出時に自動的にヒアリングセッションを開始
+   */
+  private async generateWithTriggerDetectionV2(
+    command: MentorLlmGenerateCommand,
+    conversation: { owner_id: string },
+    history: Message[],
+  ): Promise<LlmGenerateResult> {
+    // V2用システムプロンプト生成
     const systemInstruction =
       await this.inMemoryCacheService.getOrCreateSystemPrompt(
-        `${conversation.owner_id}:MENTOR`,
-        async () => this.generateSystemPrompt(conversation.owner_id, 'MENTOR'),
+        `${conversation.owner_id}:MENTOR:V2`,
+        async () =>
+          this.generateSystemPrompt(conversation.owner_id, 'MENTOR', true),
       );
 
-    // Gemini Context Caching試行（トークンコスト削減）
     let geminiCacheName: string | null = null;
     try {
       geminiCacheName =
         await this.geminiCacheService.getOrCreateSystemPromptCache(
-          `${conversation.owner_id}:MENTOR`,
+          `${conversation.owner_id}:MENTOR:V2`,
           systemInstruction,
           'gemini-2.0-flash',
         );
-      if (geminiCacheName) {
-        this.logger.log(`[MentorAI] Gemini cache ready: ${geminiCacheName}`);
-      }
     } catch (error) {
       this.logger.warn(
-        '[MentorAI] Failed to create Gemini cache, proceeding without caching',
+        '[MentorAI:V2] Failed to create Gemini cache',
         error,
       );
     }
-
-    this.logger.log(
-      `[MentorAI] System prompt ready for userId=${conversation.owner_id}`,
-    );
 
     const userMessage: Message = {
       messageId: createUUID(),
@@ -425,15 +471,15 @@ export class LlmService {
         command.prompt,
         {
           conversationId: command.conversationId,
-          history: [...(history as unknown as Message[]), userMessage],
+          history: [...history, userMessage],
           systemInstruction,
           requireWebSearch: false,
           geminiCacheName: geminiCacheName ?? undefined,
         },
       )) as HybridAnswerResult;
 
-      // Story 2-6: トリガー検出結果をパース
-      const parsed = parseTriggerDetectionFromResponse(result.answer);
+      // V2パース：トリガー検出 + 初期KC + 後続質問
+      const parsed = parseTriggerDetectionV2(result.answer);
 
       llmResult = {
         type: result.type,
@@ -444,35 +490,183 @@ export class LlmService {
           content: parsed.cleanAnswer,
         },
         sources: result.sources,
-        triggerDetection: parsed.triggerDetection,
       };
 
-      // トリガー検出結果をログに出力
-      if (parsed.triggerDetection?.detected) {
+      // トリガー検出時：ヒアリングセッション開始
+      if (parsed.result?.detected && parsed.result.confidence >= 0.8) {
+        const session = this.triggerSessionService.createSession(
+          command.conversationId,
+          parsed.result.triggerType as TriggerType,
+          parsed.result.initialKC ?? {},
+          [
+            { role: 'user', content: command.prompt },
+            { role: 'assistant', content: parsed.cleanAnswer },
+          ],
+        );
+
+        llmResult.triggerSession = {
+          id: session.id,
+          status: session.status,
+          hearingRound: session.hearingRound,
+        };
+
         this.logger.log(
-          `[MentorAI] Trigger detected in response: ` +
-            `type=${parsed.triggerDetection.triggerType} ` +
-            `confidence=${parsed.triggerDetection.confidence}`,
+          `[MentorAI:V2] Trigger detected, hearing session started: ` +
+            `sessionId=${session.id} type=${parsed.result.triggerType}`,
         );
       }
     } catch (error) {
       this.logger.error(
-        `[MentorAI] Failed to generate answer conversationId="${command.conversationId}"`,
+        `[MentorAI:V2] Failed to generate answer`,
         error as Error,
       );
-      const fallbackMessage: Message = {
-        messageId: createUUID(),
-        conversationId: command.conversationId,
-        userRole: 'ASSISTANT',
-        content:
-          '申し訳ありません、現在回答を生成できませんでした。しばらくしてから再度お試しください。',
-        createdAt: new Date(),
-      };
+      llmResult = this.createErrorResponse(
+        command.conversationId,
+        '申し訳ありません、現在回答を生成できませんでした。',
+      );
+    }
+
+    this.inMemoryCacheService.appendToConversation(
+      command.conversationId.toString(),
+      userMessage,
+    );
+    this.inMemoryCacheService.appendToConversation(
+      command.conversationId.toString(),
+      llmResult.message,
+    );
+
+    return llmResult;
+  }
+
+  /**
+   * Story 2-10: ヒアリング継続モードでの応答生成
+   *
+   * 既存ヒアリングセッションを継続し、情報充足度を判定
+   */
+  private async continueHearingSession(
+    command: MentorLlmGenerateCommand,
+    conversation: { owner_id: string },
+    history: Message[],
+    session: TriggerSession,
+  ): Promise<LlmGenerateResult> {
+    this.logger.log(
+      `[MentorAI:Hearing] Continuing session: id=${session.id} ` +
+        `round=${session.hearingRound}`,
+    );
+
+    // ヒアリング継続用プロンプト生成
+    const hearingPrompt = buildHearingContinuationPrompt(
+      session.accumulatedMessages,
+      session.partialKC,
+      session.hearingRound,
+    );
+
+    // ベースシステムプロンプト取得
+    const baseSystemInstruction =
+      await this.inMemoryCacheService.getOrCreateSystemPrompt(
+        `${conversation.owner_id}:MENTOR:V2`,
+        async () =>
+          this.generateSystemPrompt(conversation.owner_id, 'MENTOR', true),
+      );
+
+    // ヒアリングプロンプトを追加
+    const systemInstruction = `${baseSystemInstruction}\n\n---\n\n${hearingPrompt}`;
+
+    const userMessage: Message = {
+      messageId: createUUID(),
+      conversationId: command.conversationId,
+      userRole: 'MENTOR',
+      content: command.prompt,
+      createdAt: new Date(),
+    };
+
+    let llmResult: LlmGenerateResult;
+    try {
+      const result = (await this.fileSearchAssistant.answerQuestion(
+        command.prompt,
+        {
+          conversationId: command.conversationId,
+          history: [...history, userMessage],
+          systemInstruction,
+          requireWebSearch: false,
+        },
+      )) as HybridAnswerResult;
+
+      // ヒアリング結果パース
+      const parsed = parseHearingContinuationResult(result.answer);
+
       llmResult = {
-        type: ResponseType.ANSWER,
-        answer: fallbackMessage.content,
-        message: fallbackMessage,
+        type: result.type,
+        answer: parsed.cleanAnswer,
+        message: {
+          ...result.message,
+          userRole: 'ASSISTANT',
+          content: parsed.cleanAnswer,
+        },
+        sources: result.sources,
       };
+
+      if (parsed.result) {
+        const { completenessScore, updatedKC, needMoreInfo } = parsed.result;
+
+        // 情報充足判定
+        const isComplete =
+          completenessScore >= 0.8 ||
+          session.hearingRound >= session.maxHearingRounds;
+
+        if (isComplete) {
+          // KC完成 → セッション完了
+          const completedSession = this.triggerSessionService.completeSession(
+            command.conversationId,
+            updatedKC as KCCandidate,
+            completenessScore,
+          );
+
+          llmResult.triggerSession = {
+            id: completedSession?.id ?? session.id,
+            status: 'ready',
+            hearingRound: session.hearingRound,
+            kcCandidate: updatedKC as KCCandidate,
+          };
+
+          this.logger.log(
+            `[MentorAI:Hearing] Session completed: id=${session.id} ` +
+              `score=${completenessScore} title="${updatedKC.title}"`,
+          );
+        } else {
+          // 情報不足 → ラウンド継続
+          this.triggerSessionService.addMessageAndAdvanceRound(
+            command.conversationId,
+            command.prompt,
+            parsed.cleanAnswer,
+          );
+
+          this.triggerSessionService.updateSession(command.conversationId, {
+            partialKC: updatedKC,
+            completenessScore,
+          });
+
+          llmResult.triggerSession = {
+            id: session.id,
+            status: 'hearing',
+            hearingRound: session.hearingRound + 1,
+          };
+
+          this.logger.log(
+            `[MentorAI:Hearing] Continuing to round ${session.hearingRound + 1}: ` +
+              `score=${completenessScore}`,
+          );
+        }
+      }
+    } catch (error) {
+      this.logger.error(
+        `[MentorAI:Hearing] Failed to continue hearing`,
+        error as Error,
+      );
+      llmResult = this.createErrorResponse(
+        command.conversationId,
+        '申し訳ありません、現在回答を生成できませんでした。',
+      );
     }
 
     this.inMemoryCacheService.appendToConversation(
@@ -492,10 +686,15 @@ export class LlmService {
    * 二層構造: FILE_SEARCH_INSTRUCTION (ベース) + PersonalityPreset (性格)
    *
    * FILE_SEARCH_INSTRUCTIONは常にプロンプトに含まれます（プリセットの有無に関わらず）
+   *
+   * @param userId ユーザーID
+   * @param role 役割 (NEW_HIRE | MENTOR)
+   * @param useV2Trigger Story 2-10: V2自動ヒアリングモードを使用するか
    */
   private async generateSystemPrompt(
     userId: string,
     role: 'NEW_HIRE' | 'MENTOR' = 'NEW_HIRE',
+    useV2Trigger: boolean = false,
   ): Promise<string> {
     // 1. ユーザーのプリセット設定を取得
     const presetId =
@@ -534,6 +733,7 @@ export class LlmService {
         targetPreset,
         mbtiInstruction,
         role,
+        useV2Trigger,
       );
     }
 
@@ -544,8 +744,12 @@ export class LlmService {
         : KNOWLEDGE_ELICITATION_INSTRUCTION;
 
     // メンター役割の場合、暗黙知トリガー検出インストラクションを追加
+    // V2モード時は自動ヒアリング用プロンプトを使用
+    const triggerInstruction = useV2Trigger
+      ? TRIGGER_DETECTION_V2_INSTRUCTION
+      : TRIGGER_DETECTION_INSTRUCTION;
     const triggerDetectionLayer =
-      role === 'MENTOR' ? `\n\n---\n\n${TRIGGER_DETECTION_INSTRUCTION}` : '';
+      role === 'MENTOR' ? `\n\n---\n\n${triggerInstruction}` : '';
 
     this.logger.warn(
       `No personality preset found for userId=${userId}, using FILE_SEARCH_INSTRUCTION only`,
@@ -563,6 +767,7 @@ export class LlmService {
     preset: PersonalityPreset,
     mbtiInstruction: string,
     role: 'NEW_HIRE' | 'MENTOR' = 'NEW_HIRE',
+    useV2Trigger: boolean = false,
   ): string {
     // 性格層のプロンプト
     const personalityPrompt = `
@@ -593,13 +798,17 @@ ${preset.systemPromptCore}
         : KNOWLEDGE_ELICITATION_INSTRUCTION;
 
     // メンター役割の場合、暗黙知トリガー検出インストラクションを追加
+    // V2モード時は自動ヒアリング用プロンプトを使用
+    const triggerInstruction = useV2Trigger
+      ? TRIGGER_DETECTION_V2_INSTRUCTION
+      : TRIGGER_DETECTION_INSTRUCTION;
     const triggerDetectionLayer =
-      role === 'MENTOR' ? `\n\n---\n\n${TRIGGER_DETECTION_INSTRUCTION}` : '';
+      role === 'MENTOR' ? `\n\n---\n\n${triggerInstruction}` : '';
 
     // 4層プロンプト構造:
     // [Layer 1] FILE_SEARCH_INSTRUCTION (共通 — RAG)
     // [Layer 2] elicitationInstruction (役割別 — 暗黙知引き出し)
-    // [Layer 3] TRIGGER_DETECTION_INSTRUCTION (メンターのみ — トリガー検出)
+    // [Layer 3] TRIGGER_DETECTION_INSTRUCTION or V2 (メンターのみ — トリガー検出)
     // [Layer 4] PersonalityPreset + MBTI (共通)
     return `${FILE_SEARCH_INSTRUCTION}\n\n---\n\n${elicitationInstruction}${triggerDetectionLayer}\n\n---\n\n${personalityPrompt}${mbtiInstruction}`;
   }

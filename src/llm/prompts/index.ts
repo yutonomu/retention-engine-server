@@ -10,3 +10,15 @@ export {
   type TacitKnowledgeExample,
   type ConstructionCategory,
 } from './constructionDomainPatterns';
+
+// Story 2-10: 자동 히어링 프롬프트
+export {
+  TRIGGER_DETECTION_V2_INSTRUCTION,
+  buildHearingContinuationPrompt,
+  parseTriggerDetectionV2,
+  parseHearingContinuationResult,
+  type TriggerDetectionResultV2,
+  type HearingContinuationResult,
+  type InitialKC,
+  type CompletedKC,
+} from './tacitKnowledgeHearing';

@@ -9,6 +9,7 @@ import { GeminiTextService } from './external/geminiTextService';
 import { UserModule } from '../user/user.module';
 import { ConversationModule } from '../conversation/conversation.module';
 import { PersonalityPresetModule } from '../personality-preset/personalityPreset.module';
+import { TriggerSessionModule } from '../trigger-session/triggerSession.module';
 
 // Hybrid RAG関連imports
 import { WebSearchAssistant } from './external/webSearchAssistant';
@@ -26,6 +27,7 @@ const ORIGINAL_FILE_SEARCH_ASSISTANT = 'ORIGINAL_FILE_SEARCH_ASSISTANT';
     UserModule,
     ConversationModule,
     PersonalityPresetModule,
+    TriggerSessionModule,
   ],
   controllers: [LlmController],
   providers: [

@@ -101,12 +101,23 @@ export class LlmController {
       );
     }
 
+    // Story 2-10: トリガーセッション状態をログに記録
+    if (result.triggerSession) {
+      this.logger.log(
+        `[MentorAI] TriggerSession: id=${result.triggerSession.id} ` +
+          `status=${result.triggerSession.status} ` +
+          `round=${result.triggerSession.hearingRound}`,
+      );
+    }
+
     return {
       type: result.type,
       answer: result.answer,
       sources: result.sources,
       // Story 2-6: 暗黙知トリガー検出結果
       triggerDetection: result.triggerDetection,
+      // Story 2-10: 自動ヒアリングセッション状態
+      triggerSession: result.triggerSession,
     };
   }
 
