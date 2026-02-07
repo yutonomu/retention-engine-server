@@ -32,6 +32,8 @@ export interface LlmKCCandidate {
   precaution: string; // 注意点
   tags: string[];
   confidence: number; // 0.0~1.0
+  importance?: string; // 重要性
+  example?: string; // 具体例
   source_message_range?: { start: number; end: number };
 }
 
@@ -43,6 +45,8 @@ export interface KCCandidate {
   precaution: string;
   tags: string[];
   confidence: number;
+  importance?: string;
+  example?: string;
   sourceMessageRange?: { start: number; end: number };
 }
 
@@ -64,6 +68,18 @@ export function composeKCContent(candidate: {
   situation: string;
   knowhow: string;
   precaution: string;
+  importance?: string;
+  example?: string;
 }): string {
-  return `## 状況\n${candidate.situation}\n\n## ノウハウ\n${candidate.knowhow}\n\n## 注意点\n${candidate.precaution}`;
+  let content = `## 状況\n${candidate.situation}\n\n## ノウハウ\n${candidate.knowhow}\n\n## 注意点\n${candidate.precaution}`;
+
+  if (candidate.importance) {
+    content += `\n\n## 重要性\n${candidate.importance}`;
+  }
+
+  if (candidate.example) {
+    content += `\n\n## 具体例\n${candidate.example}`;
+  }
+
+  return content;
 }

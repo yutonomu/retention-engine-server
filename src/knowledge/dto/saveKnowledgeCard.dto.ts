@@ -5,6 +5,8 @@ export interface SaveKCCandidateDto {
   precaution: string; // 注意点
   tags: string[];
   confidence: number;
+  importance?: string; // 重要性
+  example?: string; // 具体例
   sourceMessageRange?: { start: number; end: number };
 }
 

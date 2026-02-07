@@ -134,6 +134,8 @@ export class KnowledgeService {
       situation: candidate.situation,
       knowhow: candidate.knowhow,
       precaution: candidate.precaution,
+      importance: candidate.importance,
+      example: candidate.example,
     });
 
     // 保存用 embedding を最終 content から生成
@@ -209,6 +211,8 @@ export class KnowledgeService {
       situation?: string;
       knowhow?: string;
       precaution?: string;
+      importance?: string;
+      example?: string;
       tags?: string[];
       status?: KnowledgeCard['status'];
     },
@@ -229,11 +233,13 @@ export class KnowledgeService {
       updatePayload.tags = data.tags;
     }
 
-    // situation/knowhow/precaution のいずれかが変わったら content 再合成
+    // situation/knowhow/precaution/importance/example のいずれかが変わったら content 再合成
     if (
       data.situation !== undefined ||
       data.knowhow !== undefined ||
-      data.precaution !== undefined
+      data.precaution !== undefined ||
+      data.importance !== undefined ||
+      data.example !== undefined
     ) {
       // 既存のcontentからセクションを抽出
       const sections = this.parseKCContent(existing.content);
@@ -241,6 +247,8 @@ export class KnowledgeService {
         situation: data.situation ?? sections.situation,
         knowhow: data.knowhow ?? sections.knowhow,
         precaution: data.precaution ?? sections.precaution,
+        importance: data.importance ?? sections.importance,
+        example: data.example ?? sections.example,
       });
       updatePayload.content = newContent;
 
@@ -281,15 +289,21 @@ export class KnowledgeService {
     situation: string;
     knowhow: string;
     precaution: string;
+    importance?: string;
+    example?: string;
   } {
     const situationMatch = content.match(/## 状況\n([\s\S]*?)(?=\n## |$)/);
     const knowhowMatch = content.match(/## ノウハウ\n([\s\S]*?)(?=\n## |$)/);
     const precautionMatch = content.match(/## 注意点\n([\s\S]*?)(?=\n## |$)/);
+    const importanceMatch = content.match(/## 重要性\n([\s\S]*?)(?=\n## |$)/);
+    const exampleMatch = content.match(/## 具体例\n([\s\S]*?)(?=\n## |$)/);
 
     return {
       situation: situationMatch?.[1]?.trim() ?? '',
       knowhow: knowhowMatch?.[1]?.trim() ?? '',
       precaution: precautionMatch?.[1]?.trim() ?? '',
+      importance: importanceMatch?.[1]?.trim() || undefined,
+      example: exampleMatch?.[1]?.trim() || undefined,
     };
   }
 }

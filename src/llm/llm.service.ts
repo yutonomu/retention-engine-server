@@ -559,6 +559,7 @@ export class LlmService {
       session.accumulatedMessages,
       session.partialKC,
       session.hearingRound,
+      session.triggerType,
     );
 
     // ベースシステムプロンプト取得

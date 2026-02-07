@@ -37,6 +37,7 @@ export interface KCCandidate {
   precaution: string;
   tags: string[];
   importance: string;
+  example?: string;
 }
 
 /**
@@ -81,4 +82,4 @@ export interface TriggerSessionResponse {
 /**
  * 기본 히어링 라운드 수
  */
-export const DEFAULT_MAX_HEARING_ROUNDS = 3;
+export const DEFAULT_MAX_HEARING_ROUNDS = 4;
