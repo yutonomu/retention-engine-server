@@ -22,6 +22,7 @@ import type {
 } from './dto/create-answer-card.dto';
 import type { ListAnswerCardsQuery } from './dto/list-answer-cards.dto';
 import { KnowledgeService } from '../knowledge/knowledge.service';
+import { composeKCContent } from '../knowledge/knowledge.types';
 
 interface AuthenticatedRequest extends Request {
   user: { sub: string };
@@ -49,7 +50,11 @@ export class AnswerCardController {
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
 
-    for await (const event of this.answerCardService.generateStream(dto)) {
+    const abortController = new AbortController();
+    res.on('close', () => abortController.abort());
+
+    for await (const event of this.answerCardService.generateStream(dto, abortController.signal)) {
+      if (abortController.signal.aborted) break;
       res.write(`data: ${JSON.stringify(event)}\n\n`);
     }
 
@@ -188,7 +193,7 @@ export class AnswerCardController {
     @Body() dto: Partial<Pick<CreateAnswerCardRequest, 'candidate'>>,
   ) {
     const updated = await this.answerCardService.updateAnswerCard(id, {
-      content: dto.candidate ? undefined : undefined,
+      content: dto.candidate ? composeKCContent(dto.candidate) : undefined,
     });
 
     return {

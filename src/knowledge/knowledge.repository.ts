@@ -126,8 +126,9 @@ export class KnowledgeRepository implements KnowledgePort {
     }
 
     if (query.search) {
+      const safe = query.search.replace(/[%_]/g, '\\$&').replace(/[,.()]/g, '');
       qb = qb.or(
-        `title.ilike.%${query.search}%,content.ilike.%${query.search}%`,
+        `title.ilike.%${safe}%,content.ilike.%${safe}%`,
       );
     }
 

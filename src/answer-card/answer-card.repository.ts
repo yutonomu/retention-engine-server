@@ -96,7 +96,8 @@ export class AnswerCardRepository implements AnswerCardPort {
     }
 
     if (query.search) {
-      qb = qb.or(`content.ilike.%${query.search}%`);
+      const safe = query.search.replace(/[%_]/g, '\\$&').replace(/[,.()]/g, '');
+      qb = qb.or(`content.ilike.%${safe}%`);
     }
 
     qb = qb.order('created_at', { ascending: false });

@@ -93,6 +93,7 @@ export class AnswerCardService implements OnModuleInit {
    */
   async *generateStream(
     dto: GenerateAnswerRequest,
+    signal?: AbortSignal,
   ): AsyncGenerator<GenerateStreamEvent> {
     if (!this.client) {
       yield {
@@ -136,6 +137,7 @@ export class AnswerCardService implements OnModuleInit {
       let fullText = '';
 
       for await (const chunk of response) {
+        if (signal?.aborted) break;
         const text =
           chunk.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
         if (text) {
