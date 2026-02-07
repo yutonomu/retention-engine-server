@@ -43,6 +43,7 @@ export interface KCListItemResponse {
   status: KCStatus;
   tags: string[];
   confidence: number | null;
+  questionCardId: string | null;
   createdAt: string;
   viewCount: number;
   usefulCount: number;
@@ -59,6 +60,7 @@ export interface KCDetailResponse {
   verifierId: string | null;
   tags: string[];
   confidence: number | null;
+  questionCardId: string | null;
   sourceConversationId: string | null;
   sourceMessageRange: { start_index: number; end_index: number } | null;
   createdAt: string;

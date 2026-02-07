@@ -86,6 +86,7 @@ export class KnowledgeController {
     const card = await this.knowledgeService.saveKnowledgeCard(
       {
         conversationId: body.conversationId,
+        questionCardId: body.questionCardId,
         candidate: body.candidate,
       },
       req.user.sub,
@@ -110,6 +111,7 @@ export class KnowledgeController {
     const result = await this.knowledgeService.listKnowledgeCards({
       status: query.status,
       sourceType: query.sourceType,
+      questionCardId: query.questionCardId,
       search: query.search,
       tags: query.tags ? query.tags.split(',') : undefined,
       limit: query.limit ? Number(query.limit) : undefined,
@@ -125,6 +127,41 @@ export class KnowledgeController {
         status: kc.status,
         tags: kc.tags,
         confidence: kc.confidence,
+        questionCardId: kc.question_card_id,
+        createdAt: kc.created_at,
+        viewCount: kc.view_count,
+        usefulCount: kc.useful_count,
+      })),
+      total: result.total,
+    };
+  }
+
+  /**
+   * GET /knowledge/cards/:id
+   * KC詳細
+   */
+  /**
+   * GET /knowledge/cards/question/:questionCardId
+   * 質問カードに紐づくKC一覧
+   */
+  @Get('cards/question/:questionCardId')
+  async listByQuestionCard(
+    @Param('questionCardId') questionCardId: string,
+  ): Promise<{ items: KCListItemResponse[]; total: number }> {
+    const result = await this.knowledgeService.listKnowledgeCards({
+      questionCardId,
+    });
+
+    return {
+      items: result.items.map((kc) => ({
+        id: kc.id,
+        title: kc.title,
+        content: kc.content,
+        sourceType: kc.source_type,
+        status: kc.status,
+        tags: kc.tags,
+        confidence: kc.confidence,
+        questionCardId: kc.question_card_id,
         createdAt: kc.created_at,
         viewCount: kc.view_count,
         usefulCount: kc.useful_count,
@@ -151,6 +188,7 @@ export class KnowledgeController {
       verifierId: kc.verifier_id,
       tags: kc.tags,
       confidence: kc.confidence,
+      questionCardId: kc.question_card_id,
       sourceConversationId: kc.source_conversation_id,
       sourceMessageRange: kc.source_message_range,
       createdAt: kc.created_at,
@@ -201,6 +239,7 @@ export class KnowledgeController {
       verifierId: kc.verifier_id,
       tags: kc.tags,
       confidence: kc.confidence,
+      questionCardId: kc.question_card_id,
       sourceConversationId: kc.source_conversation_id,
       sourceMessageRange: kc.source_message_range,
       createdAt: kc.created_at,

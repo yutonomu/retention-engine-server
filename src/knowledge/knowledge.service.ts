@@ -127,7 +127,7 @@ export class KnowledgeService {
     dto: SaveKnowledgeCardDto,
     userId: string,
   ): Promise<KnowledgeCard> {
-    const { conversationId, candidate } = dto;
+    const { conversationId, questionCardId, candidate } = dto;
 
     // content をマークダウン合成
     const content = composeKCContent({
@@ -166,7 +166,8 @@ export class KnowledgeService {
       project_id: null,
       tags: candidate.tags,
       confidence: candidate.confidence ?? null,
-      source_conversation_id: conversationId,
+      question_card_id: questionCardId ?? null,
+      source_conversation_id: conversationId ?? null,
       source_message_range: candidate.sourceMessageRange
         ? {
             start_index: candidate.sourceMessageRange.start,

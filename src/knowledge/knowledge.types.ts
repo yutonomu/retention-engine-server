@@ -15,6 +15,7 @@ export interface KnowledgeCard {
   project_id: string | null;
   tags: string[];
   confidence: number | null;
+  question_card_id: string | null;
   source_conversation_id: string | null;
   source_message_range: { start_index: number; end_index: number } | null;
   embedding: number[] | null;

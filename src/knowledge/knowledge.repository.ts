@@ -44,6 +44,7 @@ export class KnowledgeRepository implements KnowledgePort {
         project_id: kc.project_id,
         tags: kc.tags,
         confidence: kc.confidence,
+        question_card_id: kc.question_card_id,
         source_conversation_id: kc.source_conversation_id,
         source_message_range: kc.source_message_range,
         embedding: embeddingStr,
@@ -76,6 +77,23 @@ export class KnowledgeRepository implements KnowledgePort {
     return data as unknown as KnowledgeCard;
   }
 
+  async findByQuestionCardId(questionCardId: string): Promise<KnowledgeCard[]> {
+    const { data, error } = await this.supabase
+      .from('knowledge_cards')
+      .select()
+      .eq('question_card_id', questionCardId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      this.logger.error(
+        `Failed to find knowledge cards by question: ${error.message}`,
+      );
+      throw error;
+    }
+
+    return (data ?? []) as unknown as KnowledgeCard[];
+  }
+
   async findAll(query: KCListQuery): Promise<KCListResult> {
     const limit = query.limit ?? 20;
     const offset = query.offset ?? 0;
@@ -83,7 +101,7 @@ export class KnowledgeRepository implements KnowledgePort {
     let qb = this.supabase
       .from('knowledge_cards')
       .select(
-        'id, title, content, source_type, status, creator_id, tags, confidence, created_at, view_count, useful_count',
+        'id, title, content, source_type, status, creator_id, tags, confidence, question_card_id, created_at, view_count, useful_count',
         { count: 'exact' },
       );
 
@@ -97,6 +115,10 @@ export class KnowledgeRepository implements KnowledgePort {
 
     if (query.creatorId) {
       qb = qb.eq('creator_id', query.creatorId);
+    }
+
+    if (query.questionCardId) {
+      qb = qb.eq('question_card_id', query.questionCardId);
     }
 
     if (query.tags && query.tags.length > 0) {

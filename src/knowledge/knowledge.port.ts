@@ -11,6 +11,7 @@ export interface KCListQuery {
   status?: KCStatus;
   sourceType?: KCSourceType;
   creatorId?: string;
+  questionCardId?: string;
   tags?: string[];
   search?: string;
   limit?: number;
@@ -37,6 +38,11 @@ export interface KnowledgePort {
    * IDで取得
    */
   findById(id: string): Promise<KnowledgeCard | null>;
+
+  /**
+   * 質問カードIDで取得
+   */
+  findByQuestionCardId(questionCardId: string): Promise<KnowledgeCard[]>;
 
   /**
    * 一覧取得（フィルタ・ページネーション対応）

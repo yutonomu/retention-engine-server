@@ -11,12 +11,14 @@ export interface SaveKCCandidateDto {
 }
 
 export interface SaveKnowledgeCardDto {
-  conversationId: string;
+  conversationId?: string;
+  questionCardId?: string;
   candidate: SaveKCCandidateDto;
 }
 
 export interface SaveKnowledgeCardRequest {
-  conversationId: string;
+  conversationId?: string;
+  questionCardId?: string;
   candidate: SaveKCCandidateDto;
   userId: string;
 }

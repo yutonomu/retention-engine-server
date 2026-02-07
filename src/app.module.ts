@@ -14,6 +14,7 @@ import { PersonalityPresetModule } from './personality-preset/personalityPreset.
 import { AvatarModule } from './avatar/avatar.module';
 import { KnowledgeModule } from './knowledge/knowledge.module';
 import { QuestionCardModule } from './question-card/question-card.module';
+import { AnswerCardModule } from './answer-card/answer-card.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { QuestionCardModule } from './question-card/question-card.module';
     AvatarModule,
     KnowledgeModule,
     QuestionCardModule,
+    AnswerCardModule,
   ],
   controllers: [AppController],
   providers: [AppService],
