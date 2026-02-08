@@ -29,6 +29,8 @@ JSON配列を返してください。各要素は以下の構造です:
     "situation": "どんな状況・場面で使う知識か（具体的に）",
     "knowhow": "具体的なノウハウ・やり方・判断基準（新人が実践できるレベルで）",
     "precaution": "注意点・落とし穴・よくある間違い",
+    "importance": "なぜこの知識が新人にとって重要か（一文で）",
+    "example": "会話中に出てきた具体的な事例・エピソード（あれば）",
     "tags": ["関連キーワード1", "関連キーワード2"],
     "confidence": 0.8,
     "source_message_range": { "start": 0, "end": 5 }
@@ -41,6 +43,8 @@ JSON配列を返してください。各要素は以下の構造です:
 - **situation**: この知識が役立つ具体的な場面・条件
 - **knowhow**: ベテランならではの対処法・手順・コツ（核心部分）
 - **precaution**: やりがちな失敗、見落としやすいポイント、例外ケース
+- **importance**: なぜこの知識が新人にとって重要なのかを一文で説明
+- **example**: 会話中に出てきた具体的な事例・エピソード（あれば記載、なければ空文字 ""）
 - **tags**: 検索用キーワード（2〜4個）
 - **confidence**: 暗黙知としての確度（0.0〜1.0）
   - 0.9以上: 明確な経験則・固有ルール
@@ -79,6 +83,8 @@ JSON配列を返してください。各要素は以下の構造です:
     "situation": "配筋検査の実施前、特に鉄筋のかぶり厚さを確認する場面",
     "knowhow": "スペーサーで鉄筋のかぶり厚さを手で確認する。基準法では柱・梁の屋内側で3cmだが、社内基準では安全マージンとして4cmを確保する。",
     "precaution": "雨の翌日は鉄筋が滑りやすいため、検査は午後にずらす。基準法の最小値（3cm）ではなく社内基準（4cm）を適用すること。",
+    "importance": "かぶり厚さ不足は構造耐力と耐久性に直結し、手戻り工事になるため、新人が最初に覚えるべき検査ポイントである。",
+    "example": "以前、基準法の最小値3cmで施工したところ社内検査でNGになり、やり直しになった経験がある。",
     "tags": ["配筋検査", "かぶり厚さ", "スペーサー"],
     "confidence": 0.92,
     "source_message_range": { "start": 0, "end": 2 }
@@ -104,6 +110,8 @@ export const KC_CANDIDATE_RESPONSE_SCHEMA = {
       situation: { type: 'STRING' },
       knowhow: { type: 'STRING' },
       precaution: { type: 'STRING' },
+      importance: { type: 'STRING' },
+      example: { type: 'STRING' },
       tags: { type: 'ARRAY', items: { type: 'STRING' } },
       confidence: { type: 'NUMBER' },
       source_message_range: {
@@ -120,6 +128,7 @@ export const KC_CANDIDATE_RESPONSE_SCHEMA = {
       'situation',
       'knowhow',
       'precaution',
+      'importance',
       'tags',
       'confidence',
     ],

@@ -221,6 +221,8 @@ export class TacitKnowledgeExtractorService implements OnModuleInit {
       situation: item.situation,
       knowhow: item.knowhow,
       precaution: item.precaution,
+      importance: item.importance,
+      example: item.example || undefined,
       tags: item.tags,
       confidence: item.confidence,
       sourceMessageRange: item.source_message_range
@@ -361,6 +363,8 @@ export class TacitKnowledgeExtractorService implements OnModuleInit {
           situation: item.situation.trim(),
           knowhow: item.knowhow.trim(),
           precaution: item.precaution.trim(),
+          importance: typeof item.importance === 'string' ? item.importance.trim() : undefined,
+          example: typeof item.example === 'string' && item.example.trim() ? item.example.trim() : undefined,
           tags: item.tags.filter((t): t is string => typeof t === 'string'),
           confidence: Math.max(0, Math.min(1, item.confidence)),
           source_message_range: item.source_message_range,
