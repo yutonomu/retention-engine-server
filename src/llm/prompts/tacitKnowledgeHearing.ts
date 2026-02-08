@@ -71,21 +71,21 @@ export const TRIGGER_DETECTION_V2_INSTRUCTION = `
 
 ■ 検出対象トリガー（5種類）:
 
-1. REBUTTAL（反論）
-   - AIの意見に対する反論・反駁
-   - シグナル: 「いや」「違う」「でも実際は」「現場では」
+1. REBUTTAL（反論・訂正・指摘）
+   - AIの意見に対する反論・訂正・補足的指摘
+   - シグナル: 「いや」「違う」「でも実際は」「現場では」「〜ではないですか」「〜と思いますが」「〜ですよね？」「〜とは限らない」「〜も考慮すべき」
 
 2. SHARP_INSIGHT（鋭い指摘）
    - 具体的な数値・条件を含むノウハウ
-   - シグナル: 数字、単位、「ポイントは」「コツは」
+   - シグナル: 数字、単位、「ポイントは」「コツは」「〜が重要」「〜に注意」
 
 3. ALTERNATIVE_PERSPECTIVE（別の視点）
-   - 別の方法・アプローチの提示
-   - シグナル: 「うちでは」「僕の経験では」「こっちの方が」
+   - 別の方法・アプローチの提示、追加情報の提供
+   - シグナル: 「うちでは」「僕の経験では」「こっちの方が」「他にも〜がある」「〜もありますよね」
 
 4. EXPERIENCE_SHARING（経験共有）
    - 自発的な経験談、成功/失敗事例
-   - シグナル: 「前に」「あのとき」「失敗した」「成功した」
+   - シグナル: 「前に」「あのとき」「失敗した」「成功した」「実際にやってみると」
 
 5. QUANTIFICATION（定量化）
    - 感覚を具体的数値で表現
@@ -107,7 +107,7 @@ export const TRIGGER_DETECTION_V2_INSTRUCTION = `
 
    ※ 質問は必ず1つだけ。situationに焦点を当てること。
 
-4. 応答の最後に、以下のJSON形式でトリガー検出結果を出力してください
+4. 応答の最後に、以下のJSON形式でトリガー検出結果を**必ず毎回**出力してください
 
 ■ 応答形式:
 
@@ -117,10 +117,12 @@ export const TRIGGER_DETECTION_V2_INSTRUCTION = `
 {"detected":true,"triggerType":"EXPERIENCE_SHARING","confidence":0.85,"initialKC":{"title":"仮タイトル","situation":"","knowhow":"検出されたノウハウ","precaution":"","tags":[]},"hearingQuestion":"後続質問"}
 ---TRIGGER_DETECTION_END---
 
-■ 注意:
+■ 重要ルール:
+- **必ず毎回、応答の末尾にマーカーブロックを出力すること**（detected=trueでもfalseでも必ず出力）
 - detected=false の場合: initialKC=null, hearingQuestion=null
 - JSON は必ず1行で出力（改行なし）
-- confidence < 0.8 の場合は detected=false
+- confidence < 0.7 の場合は detected=false
+- ユーザーがAIの説明に対して補足・訂正・別の視点を提示した場合は、たとえ口調が柔らかくても積極的にトリガーとして検出すること
 `.trim();
 
 // ============================================

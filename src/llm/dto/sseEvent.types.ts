@@ -10,7 +10,7 @@ import type { FileSearchSource, WebSource } from './llmGenerateResponse.dto';
 /**
  * SSEイベントタイプ
  */
-export type SSEEventType = 'step' | 'chunk' | 'sources' | 'done' | 'error';
+export type SSEEventType = 'step' | 'chunk' | 'sources' | 'done' | 'error' | 'trigger' | 'session';
 
 /**
  * パイプラインステップ識別子

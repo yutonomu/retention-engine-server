@@ -492,8 +492,8 @@ export class LlmService {
         sources: result.sources,
       };
 
-      // トリガー検出時：ヒアリングセッション開始
-      if (parsed.result?.detected && parsed.result.confidence >= 0.8) {
+      // トリガー検出時：ヒアリングセッション開始（V2: 閾値0.7）
+      if (parsed.result?.detected && parsed.result.confidence >= 0.7) {
         const session = this.triggerSessionService.createSession(
           command.conversationId,
           parsed.result.triggerType as TriggerType,
@@ -947,6 +947,297 @@ ${preset.systemPromptCore}
       );
     } catch (error) {
       this.logger.error('Failed to update cache after streaming', error);
+    }
+  }
+
+  /**
+   * メンターAI対話用ストリーミング — テキストストリーム後にトリガー検出を実行
+   *
+   * 1. テキストをチャンクでストリーミング (chunk イベント)
+   * 2. ストリーム完了後にV2トリガー検出を実行
+   * 3. トリガー検出結果を trigger イベントで送信
+   * 4. ヒアリングセッション状態を session イベントで送信
+   * 5. done イベントで完了
+   */
+  async *generateForMentorStream(
+    command: MentorLlmGenerateCommand,
+  ): AsyncGenerator<SSEEvent> {
+    const conversation = await this.conversationPort.findById(
+      command.conversationId.toString(),
+    );
+
+    if (!conversation || !conversation.owner_id) {
+      yield {
+        type: 'error',
+        data: '会話が見つかりませんでした。',
+        metadata: {
+          error: {
+            code: 'CONVERSATION_NOT_FOUND',
+            message: '会話が見つかりませんでした。新しい会話を開始してください。',
+            retryable: false,
+          },
+        },
+      };
+      return;
+    }
+
+    const history =
+      await this.inMemoryCacheService.getOrCreateConversation<Message>(
+        command.conversationId.toString(),
+        async () => {
+          const messages = await this.messagePort.findAllByConversation(
+            command.conversationId.toString(),
+          );
+          return messages as unknown as Message[];
+        },
+      );
+
+    // 活性TriggerSessionの確認
+    const activeSession = this.triggerSessionService.findActiveSession(
+      command.conversationId,
+    );
+
+    // V2用システムプロンプト生成
+    const baseSystemInstruction =
+      await this.inMemoryCacheService.getOrCreateSystemPrompt(
+        `${conversation.owner_id}:MENTOR:V2`,
+        async () =>
+          this.generateSystemPrompt(conversation.owner_id, 'MENTOR', true),
+      );
+
+    // ヒアリング継続モードの場合はプロンプトを追加
+    let systemInstruction = baseSystemInstruction;
+    if (activeSession) {
+      const hearingPrompt = buildHearingContinuationPrompt(
+        activeSession.accumulatedMessages,
+        activeSession.partialKC,
+        activeSession.hearingRound,
+        activeSession.triggerType,
+      );
+      systemInstruction = `${baseSystemInstruction}\n\n---\n\n${hearingPrompt}`;
+    }
+
+    let geminiCacheName: string | null = null;
+    if (!activeSession) {
+      try {
+        geminiCacheName =
+          await this.geminiCacheService.getOrCreateSystemPromptCache(
+            `${conversation.owner_id}:MENTOR:V2`,
+            baseSystemInstruction,
+            'gemini-2.0-flash',
+          );
+      } catch {
+        // キャッシュ作成失敗は無視して続行
+      }
+    }
+
+    const userMessage: Message = {
+      messageId: createUUID(),
+      conversationId: command.conversationId,
+      userRole: 'MENTOR',
+      content: command.prompt,
+      createdAt: new Date(),
+    };
+
+    // HybridRagAssistant のストリーミングメソッドを呼び出す
+    const hybrid = this.fileSearchAssistant as HybridRagAssistant;
+
+    let fullAnswer = '';
+
+    if (typeof hybrid.answerQuestionStream !== 'function') {
+      // ストリーミング非対応の場合はフォールバック（非ストリーミングのメンター応答）
+      this.logger.warn(
+        '[MentorAI:Stream] fileSearchAssistant does not support streaming, falling back',
+      );
+      const result = await this.generateForMentor(command);
+      yield { type: 'chunk', data: result.answer };
+      fullAnswer = result.answer;
+      if (result.sources) {
+        yield {
+          type: 'sources',
+          data: '',
+          metadata: { sources: result.sources },
+        };
+      }
+      if (result.triggerDetection) {
+        yield { type: 'trigger', data: JSON.stringify(result.triggerDetection) };
+      }
+      if (result.triggerSession) {
+        yield { type: 'session', data: JSON.stringify(result.triggerSession) };
+      }
+      yield { type: 'done', data: '' };
+      return;
+    }
+
+    // --- ストリーミング本体 ---
+    try {
+      for await (const event of hybrid.answerQuestionStream(command.prompt, {
+        conversationId: command.conversationId,
+        history: [...(history as unknown as Message[]), userMessage],
+        systemInstruction,
+        requireWebSearch: false,
+        geminiCacheName: geminiCacheName ?? undefined,
+      })) {
+        if (event.type === 'chunk') {
+          fullAnswer += event.data;
+        }
+        yield event;
+      }
+    } catch (error) {
+      this.logger.error(
+        '[MentorAI:Stream] Streaming generation failed',
+        error as Error,
+      );
+      yield {
+        type: 'error',
+        data: '回答生成中にエラーが発生しました。',
+        metadata: {
+          error: {
+            code: 'GENERATION_ERROR',
+            message: (error as Error).message,
+            retryable: true,
+          },
+        },
+      };
+      return;
+    }
+
+    // --- ストリーム完了後: トリガー検出 ---
+    try {
+      if (activeSession) {
+        // ヒアリング継続モード
+        const parsed = parseHearingContinuationResult(fullAnswer);
+        const cleanAnswer = parsed.cleanAnswer;
+
+        // フルアンサーをクリーンアンサーに更新（マーカー除去）
+        if (cleanAnswer !== fullAnswer) {
+          fullAnswer = cleanAnswer;
+        }
+
+        if (parsed.result) {
+          const { completenessScore, updatedKC, needMoreInfo } = parsed.result;
+
+          const isComplete =
+            completenessScore >= 0.8 ||
+            activeSession.hearingRound >= activeSession.maxHearingRounds;
+
+          if (isComplete) {
+            const completedSession = this.triggerSessionService.completeSession(
+              command.conversationId,
+              updatedKC as KCCandidate,
+              completenessScore,
+            );
+
+            const sessionResponse: TriggerSessionResponse = {
+              id: completedSession?.id ?? activeSession.id,
+              status: 'ready',
+              hearingRound: activeSession.hearingRound,
+              kcCandidate: updatedKC as KCCandidate,
+            };
+
+            yield { type: 'session', data: JSON.stringify(sessionResponse) };
+
+            this.logger.log(
+              `[MentorAI:Stream:Hearing] Session completed: id=${activeSession.id} ` +
+                `score=${completenessScore}`,
+            );
+          } else {
+            this.triggerSessionService.addMessageAndAdvanceRound(
+              command.conversationId,
+              command.prompt,
+              cleanAnswer,
+            );
+
+            this.triggerSessionService.updateSession(command.conversationId, {
+              partialKC: updatedKC,
+              completenessScore,
+            });
+
+            const sessionResponse: TriggerSessionResponse = {
+              id: activeSession.id,
+              status: 'hearing',
+              hearingRound: activeSession.hearingRound + 1,
+            };
+
+            yield { type: 'session', data: JSON.stringify(sessionResponse) };
+
+            this.logger.log(
+              `[MentorAI:Stream:Hearing] Continuing to round ${activeSession.hearingRound + 1}: ` +
+                `score=${completenessScore}`,
+            );
+          }
+        }
+      } else {
+        // V2トリガー検出モード
+        const parsed = parseTriggerDetectionV2(fullAnswer);
+        const cleanAnswer = parsed.cleanAnswer;
+
+        if (cleanAnswer !== fullAnswer) {
+          fullAnswer = cleanAnswer;
+        }
+
+        if (parsed.result) {
+          yield { type: 'trigger', data: JSON.stringify(parsed.result) };
+
+          // トリガー検出時：ヒアリングセッション開始（V2: 閾値0.7）
+          if (parsed.result.detected && parsed.result.confidence >= 0.7) {
+            const session = this.triggerSessionService.createSession(
+              command.conversationId,
+              parsed.result.triggerType as TriggerType,
+              parsed.result.initialKC ?? {},
+              [
+                { role: 'user', content: command.prompt },
+                { role: 'assistant', content: cleanAnswer },
+              ],
+            );
+
+            const sessionResponse: TriggerSessionResponse = {
+              id: session.id,
+              status: session.status,
+              hearingRound: session.hearingRound,
+            };
+
+            yield { type: 'session', data: JSON.stringify(sessionResponse) };
+
+            this.logger.log(
+              `[MentorAI:Stream] Trigger detected, hearing session started: ` +
+                `sessionId=${session.id} type=${parsed.result.triggerType}`,
+            );
+          }
+        }
+      }
+    } catch (error) {
+      // トリガー検出の失敗はストリーミングをブロックしない
+      this.logger.error(
+        '[MentorAI:Stream] Trigger detection failed (non-blocking)',
+        error as Error,
+      );
+    }
+
+    // done イベント（クリーンコンテンツを含めてマーカーを除去）
+    yield { type: 'done', data: fullAnswer };
+
+    // キャッシュ更新
+    try {
+      this.inMemoryCacheService.appendToConversation(
+        command.conversationId.toString(),
+        userMessage,
+      );
+      this.inMemoryCacheService.appendToConversation(
+        command.conversationId.toString(),
+        {
+          messageId: createUUID(),
+          conversationId: command.conversationId,
+          userRole: 'ASSISTANT',
+          content: fullAnswer,
+          createdAt: new Date(),
+        },
+      );
+    } catch (error) {
+      this.logger.error(
+        '[MentorAI:Stream] Failed to update cache after streaming',
+        error,
+      );
     }
   }
 

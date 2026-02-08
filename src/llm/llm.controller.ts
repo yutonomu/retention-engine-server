@@ -122,6 +122,86 @@ export class LlmController {
   }
 
   @UsePipes(new ZodValidationPipe(llmGenerateRequestSchema))
+  @Post('mentor/generate/stream')
+  async mentorGenerateStream(
+    @Body() payload: LlmGenerateRequestDto,
+    @Res() res: Response,
+  ) {
+    this.logger.log(
+      `[MentorAI:Stream] Received mentor stream request: ` +
+        `question="${payload.question.substring(0, 50)}..." ` +
+        `conversationId=${payload.conversationId}`,
+    );
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
+
+    const command: MentorLlmGenerateCommand = {
+      prompt: payload.question,
+      conversationId: payload.conversationId as UUID,
+    };
+
+    try {
+      for await (const event of this.llmService.generateForMentorStream(
+        command,
+      )) {
+        // トリガー検出結果をログに記録
+        if (event.type === 'trigger') {
+          try {
+            const triggerData = JSON.parse(event.data);
+            if (triggerData.detected) {
+              this.logger.log(
+                `[MentorAI:Stream] Trigger detected: type=${triggerData.triggerType} ` +
+                  `confidence=${triggerData.confidence}`,
+              );
+            }
+          } catch {
+            // ログ用パースの失敗は無視
+          }
+        }
+
+        if (event.type === 'session') {
+          try {
+            const sessionData = JSON.parse(event.data);
+            this.logger.log(
+              `[MentorAI:Stream] TriggerSession: id=${sessionData.id} ` +
+                `status=${sessionData.status} ` +
+                `round=${sessionData.hearingRound}`,
+            );
+          } catch {
+            // ログ用パースの失敗は無視
+          }
+        }
+
+        res.write(`data: ${JSON.stringify(event)}\n\n`);
+      }
+    } catch (error) {
+      this.logger.error(
+        '[MentorAI:Stream] Unexpected error during streaming',
+        error,
+      );
+      const errorEvent = {
+        type: 'error',
+        data: '予期しないエラーが発生しました。',
+        metadata: {
+          error: {
+            code: 'INTERNAL_ERROR',
+            message:
+              error instanceof Error ? error.message : 'Unknown error',
+            retryable: true,
+          },
+        },
+      };
+      res.write(`data: ${JSON.stringify(errorEvent)}\n\n`);
+    } finally {
+      res.end();
+    }
+  }
+
+  @UsePipes(new ZodValidationPipe(llmGenerateRequestSchema))
   @Post('generate/stream')
   async generateStream(
     @Body() payload: LlmGenerateRequestDto,
